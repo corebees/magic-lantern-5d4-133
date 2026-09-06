@@ -1,0 +1,155 @@
+From bac4a32e295573246987227812f71d1619150058 Mon Sep 17 00:00:00 2001
+From: corebee <corebee@Corebee-Studio.localdomain>
+Date: Sat, 29 Aug 2026 10:13:06 +0200
+Subject: [PATCH 6/7] 5D4.133: stabilize ML menu input and RGBA redraw
+
+---
+ platform/5D4.133/gui.h | 37 +++++++++++++++++++++++--------------
+ src/bmp.c              |  9 +++++++++
+ src/menu.c             | 33 +++++++++++++++++++++++++++++++--
+ 3 files changed, 63 insertions(+), 16 deletions(-)
+
+diff --git a/platform/5D4.133/gui.h b/platform/5D4.133/gui.h
+index d40894308..51ca44810 100644
+--- a/platform/5D4.133/gui.h
++++ b/platform/5D4.133/gui.h
+@@ -16,8 +16,12 @@
+ #define BGMT_PLAY 0xB // ?!
+ #define BGMT_TRASH 0xD
+ 
+-#define BGMT_PRESS_DP 0x2f
+-#define BGMT_UNPRESS_DP 0x35
++/*
++ * 5D4: legacy DP codes removed.
++ * 0x2f and 0x35 belong to the multi-controller on this camera.
++ * Leave BGMT_PRESS_DP / BGMT_UNPRESS_DP undefined until their
++ * real hardware codes are identified.
++ */
+ #define BGMT_RATE 0x21
+ #define BGMT_REC 0x1E
+ 
+@@ -33,18 +37,23 @@
+ //~ #define BGMT_FUNC 0x12
+ #define BGMT_PICSTYLE 0x13
+ //~ #define BGMT_JOY_CENTER (lv ? 0x1e : 0x3b)
+-#define BGMT_JOY_CENTER 0x3e
+-
+-#define BGMT_PRESS_UP 0x36
+-#define BGMT_PRESS_UP_RIGHT 0x37
+-#define BGMT_PRESS_UP_LEFT 0x38
+-#define BGMT_PRESS_RIGHT 0x39
+-#define BGMT_PRESS_LEFT 0x3a
+-#define BGMT_PRESS_DOWN_RIGHT 0x3B
+-#define BGMT_PRESS_DOWN_LEFT 0x3C
+-#define BGMT_PRESS_DOWN 0x3d
+-
+-#define BGMT_UNPRESS_UDLR 0x35
++#define BGMT_JOY_CENTER 0x37
++
++/*
++ * 5D4 multi-controller button codes.
++ * Verified against hardware behavior; these follow the
++ * newer DIGIC 6 GUI event layout rather than the 5D3 layout.
++ */
++#define BGMT_PRESS_UP 0x2f
++#define BGMT_PRESS_UP_RIGHT 0x30
++#define BGMT_PRESS_UP_LEFT 0x31
++#define BGMT_PRESS_RIGHT 0x32
++#define BGMT_PRESS_LEFT 0x33
++#define BGMT_PRESS_DOWN_RIGHT 0x34
++#define BGMT_PRESS_DOWN_LEFT 0x35
++#define BGMT_PRESS_DOWN 0x36
++
++#define BGMT_UNPRESS_UDLR 0x2e
+ #define BGMT_PRESS_HALFSHUTTER 0x4e
+ 
+ #define BGMT_FLASH_MOVIE 0
+diff --git a/src/bmp.c b/src/bmp.c
+index 4460d3d30..0e114dcb3 100755
+--- a/src/bmp.c
++++ b/src/bmp.c
+@@ -303,7 +303,16 @@ void refresh_yuv_from_rgb_task(void *unused)
+     {
+         if (ml_refresh_display_needed && !ml_shutdown_requested && DISPLAY_IS_ON)
+         {
++#ifdef CONFIG_5D4
++            /*
++             * 5D4: serialize RGBA publication with menu drawing.
++             * The indexed bitmap must remain stable for the entire
++             * indexed-to-RGBA conversion.
++             */
++            BMP_LOCK( refresh_yuv_from_rgb(); )
++#else
+             refresh_yuv_from_rgb();
++#endif
+         }
+         msleep(50); // max 20 fps refresh
+     }
+diff --git a/src/menu.c b/src/menu.c
+index f79bc1c9c..d02b1acf7 100755
+--- a/src/menu.c
++++ b/src/menu.c
+@@ -4979,7 +4979,16 @@ menu_redraw_task()
+             
+             if (!menu_redraw_blocked)
+             {
++#ifdef CONFIG_5D4
++                /*
++                 * 5D4: the RGBA refresh runs in a separate task.
++                 * Serialize menu drawing with RGBA publication so the
++                 * refresh task cannot expose a partially redrawn frame.
++                 */
++                BMP_LOCK( menu_redraw_do(); )
++#else
+                 menu_redraw_do();
++#endif
+             }
+         }
+     }
+@@ -5402,7 +5411,7 @@ handle_ml_menu_keys(struct event * event)
+     case BGMT_UNPRESS_SET:
+         return 0; // block Canon menu redraws
+ 
+-#if defined(CONFIG_7D)
++#if defined(CONFIG_7D) || defined(CONFIG_5D4)
+     case BGMT_JOY_CENTER:
+ #endif
+     case BGMT_PRESS_SET:
+@@ -5595,8 +5604,18 @@ open_canon_menu()
+ // pump a few redraws quickly, to mask Canon's back menu
+ void menu_redraw_flood()
+ {
++#ifdef CONFIG_5D4
++    /*
++     * 5D4: start the redraw flood immediately outside LiveView
++     * to minimize exposure of the underlying Canon GUI.
++     * Keep the external-monitor LiveView delay unchanged.
++     */
++    if (lv && EXT_MONITOR_CONNECTED)
++        msleep(300);
++#else
+     if (!lv) msleep(100);
+     else if (EXT_MONITOR_CONNECTED) msleep(300);
++#endif
+     for (int i = 0; i < 5; i++)
+     {
+         if (redraw_flood_stop) break;
+@@ -5649,7 +5668,17 @@ static void piggyback_canon_menu()
+     { 
+         start_redraw_flood();
+         if (lv) bmp_off(); // mask out the underlying Canon menu :)
+-        SetGUIRequestMode(new_gui_mode); msleep(200);
++        SetGUIRequestMode(new_gui_mode);
++#ifdef CONFIG_5D4
++        /*
++         * 5D4: LiveView needs a longer Canon GUI settling time.
++         * Outside LiveView, use a shorter transition to minimize
++         * the visible Canon backing frame.
++         */
++        msleep(lv ? 125 : 75);
++#else
++        msleep(200);
++#endif
+         // bmp will be enabled after first redraw
+     }
+ #endif
