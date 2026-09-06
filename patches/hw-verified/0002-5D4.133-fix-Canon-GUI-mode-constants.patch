@@ -1,0 +1,28 @@
+From 360877cd12e87027b3de72d48ca8d4ddfb4c6aeb Mon Sep 17 00:00:00 2001
+From: corebee <corebee@Corebee-Studio.localdomain>
+Date: Sat, 29 Aug 2026 01:00:36 +0200
+Subject: [PATCH 2/7] 5D4.133: fix Canon GUI mode constants
+
+---
+ platform/5D4.133/consts.h | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/platform/5D4.133/consts.h b/platform/5D4.133/consts.h
+index 63c452e14..3ed83bd7e 100644
+--- a/platform/5D4.133/consts.h
++++ b/platform/5D4.133/consts.h
+@@ -25,8 +25,12 @@
+ 
+ #define CURRENT_GUI_MODE (*(int*)0x6fc0) // from SetGUIRequestMode
+ 
+-#define GUIMODE_PLAY 1
+-#define GUIMODE_MENU 2
++/*
++ * 5D4.133: values from the original working 2023 port.
++ * Mode 1 appears to be an image/quick-review state, not PLAY.
++ */
++#define GUIMODE_PLAY 2
++#define GUIMODE_MENU 3
+ 
+ //address of XimrContext structure to redraw in FEATURE_VRAM_RGBA
+ #define XIMR_CONTEXT 0x4d1fc // see 0xfe444ff0, check setup for that call
