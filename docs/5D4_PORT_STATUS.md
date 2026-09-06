@@ -50,7 +50,7 @@ The incomplete hashes are identifiers only and must not be used for cryptographi
 | ML GUI | `WORKING` | Opens and is usable, but is not fully stabilized |
 | Zebra refresh/lag | `INVESTIGATING` | Geometry must remain based on TEST124 |
 | Global Draw | `PARTIAL` | Shared overlay behavior is still being stabilized |
-| DELETE mapping/lifecycle | `INVESTIGATING` | Root exit, submenu back, and Canon GUI repaint paths differ |
+| DELETE mapping/lifecycle | `INVESTIGATING` | Electronic Level entry has a `HW TESTED` partial checkpoint (TEST263N-C); the overall lifecycle remains unresolved |
 | RTC/date-time corruption | `OPEN` | Seen at ML boot |
 | Histogram | `UNVERIFIED` | Do not claim working |
 | Focus Peaking | `UNVERIFIED` | Do not claim working |
@@ -59,3 +59,16 @@ The incomplete hashes are identifiers only and must not be used for cryptographi
 ## Current limitations
 
 There is no claim of release stability, complete feature coverage, or safe everyday use. Canon firmware, dumps, and proprietary material are outside the repository. Recent fake-Q, no-host, static-curtain, and LiveView GUI experiments remain research evidence rather than verified fixes.
+
+
+## Electronic Level entry checkpoint — TEST263N-C
+
+Status: `HW TESTED / PARTIAL` on a physical Canon EOS 5D Mark IV running firmware 1.3.3.
+
+The tested sequence prearms a transparent dedicated XIMR layer1 while the Electronic Level dialog is stable. A second DELETE changes the already-active layer to opaque black, emits the hidden Q transition, lets Canon settle in PLAY underneath, redraws and publishes the ML menu, and only then blanks/disables the curtain.
+
+Observed result: `Electronic Level -> black curtain -> ML`. The Canon Q and Menu/PLAY flashes seen in earlier tests were not visible, and the final TEST263N-C run reported no freeze or Err 70.
+
+This is not a general GUI fix. It currently requires two DELETE presses, deliberately shows a black curtain, is specific to `DlgOlcLevel`, and has not completed a full regression matrix. Display-off/no-host and LiveView remain separate problems.
+
+Source provenance is incomplete: the available TEST263N-C handoff records the N-B `src/menu.c` SHA-256 as `3e2587aee2f1d72067c6f62c49ce4c226766bcb416ae582c5db83dfb8d9d468c`, but the complete final N-C source file after the declaration-order build fix is not currently preserved in this repository. Do not reconstruct or claim source reproducibility until that exact file is acquired and diffed.

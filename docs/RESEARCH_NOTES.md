@@ -34,3 +34,20 @@ Labels used here: `CONFIRMED ON HARDWARE`, `STATIC RE`, `OBSERVED`, `HYPOTHESIS`
 
 - `OBSERVED`: Canon date/time corruption may occur at ML boot.
 - `OPEN`: cause and fix are not yet validated.
+
+
+## Electronic Level / XIMR curtain sequence (TEST263L–N-C)
+
+**CONFIRMED ON HARDWARE — PARTIAL CHECKPOINT**
+
+Target: physical Canon EOS 5D Mark IV, firmware 1.3.3.
+
+- TEST263L — failed/unsafe: creating or re-presenting the layer during the Q/Canon GUI transaction opened ML in roughly two of three attempts, then froze or raised Err 70.
+- TEST263M — passed: a dedicated transparent layer1 remained active for 60 seconds and across physical Q/Q plus Canon MENU open/exit, with no Err 70.
+- TEST263N-A — passed: the same prearmed layer changed from transparent to opaque black and remained black through Q/Q and MENU; disabling it restored the Electronic Level display.
+- TEST263N-B — passed with cosmetic limitation: automated transparent prearm, opaque curtain, hidden Q, PLAY, and ML entry was stable, but the curtain handoff exposed a microflash of Canon Menu.
+- TEST263N-C — passed: moving the handoff until after the redraw flood and final explicit ML publication removed the observed Canon Menu microflash. Final visible sequence: `Electronic Level -> black -> ML`.
+
+The confirmed ordering is: prearm the backend while Canon is stable; later change/present only the layer contents; let Canon Q/PLAY run underneath; retain the opaque curtain until ML redraw flooding and final publication have completed; then blank and disable layer1.
+
+The available source handoff is not complete enough for a reproducible source commit. It identifies the TEST263N-A SHA-256 `cd9d9e1e1eed7c5c5b14f18659b1f38c34882e3c1af65a4388c6b312c0fd2d92` and the TEST263N-B SHA-256 `3e2587aee2f1d72067c6f62c49ce4c226766bcb416ae582c5db83dfb8d9d468c`, but not the final N-C `src/menu.c` SHA-256 after the declaration-order fix. The exact hardware-tested file must be acquired before source integration.
