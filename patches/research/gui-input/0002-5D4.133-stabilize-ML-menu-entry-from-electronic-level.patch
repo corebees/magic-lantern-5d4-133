@@ -1,0 +1,1036 @@
+M1-RC1 — Stable Electronic Level to ML menu entry
+===================================================
+
+Classification: HARDWARE-VERIFIED MILESTONE
+Target: Canon EOS 5D Mark IV, firmware 1.3.3
+Hardware: physical camera
+Validated sequence: Electronic Level -> single DELETE -> frozen level frame -> ML
+Hardware regression: PASS; no freeze or Err 70 observed
+
+Baseline src/menu.c (TEST263N-C) SHA-256:
+e15b62ca710d9b7e6415fd3eed6b99992253815c0900d5b90f84436ee8b52c6e
+
+Result src/menu.c (M1-RC1) SHA-256:
+f0d4c8642d611fc3d4e12d58e7e17d0ed8327605c3c178944c345650192d8011
+
+Hardware-tested autoexec.bin SHA-256 (binary not committed):
+f68867942b980cfbbcdcd22caef499f83df8a6bde31670bcf853e13485d6332d
+
+Pre-cleanup HW-pass src/menu.c SHA-256:
+d1f7c56a5c3676889083baaeb08bfe0580cd52ba167ac5eed8e7dc90c2fe17f2
+
+This is the exact TEST263N-C -> M1-RC1 delta. Apply to the exact baseline and verify the resulting hash before building.
+
+diff --git a/src/menu.c b/src/menu.c
+index 6b9457a..b86eea4 100644
+--- a/src/menu.c
++++ b/src/menu.c
+@@ -5589,7 +5589,6 @@ handle_ml_menu_keys(struct event * event)
+ }
+ 
+ 
+-
+ void 
+ menu_init( void )
+ {
+@@ -5681,54 +5680,23 @@ open_canon_menu()
+     //~ }
+ }
+ 
+-#ifdef CONFIG_5D4
+-/*
+- * TEST263K-FROZEN-CANON-FRAME-MASK
+- *
+- * Keep the already-visible Canon frame on screen while the
+- * Q -> mode2 transition runs underneath.
+- *
+- * AUDIT101:
+- * canon_gui_disable_front_buffer() only gates Canon drawing via
+- * WINSYS_BMP_DIRTY_BIT_NEG under BMP_LOCK.
+- */
+-static volatile int test263k_level_mask_active_5d4 = 0;
+-
+-static void test263k_level_mask_failsafe_cbr()
+-{
+-    /*
+-     * If the Q/PLAY pre-arm failed and ML never opened,
+-     * never leave the Canon display permanently frozen.
+-     */
+-    if (
+-        test263k_level_mask_active_5d4 &&
+-        !menu_shown
+-    )
+-    {
+-        canon_gui_enable_front_buffer(0);
+-        test263k_level_mask_active_5d4 = 0;
+-    }
+-}
+-#endif
+ 
+ #ifdef CONFIG_5D4
++
+ /*
+- * TEST263M-TRANSPARENT-LAYER-PREARM
+- *
+- * Diagnostic only.
+- *
+- * First DELETE from electronic level:
++ * 5D4 electronic-level -> ML menu transition.
+  *
+- *   setup dedicated XIMR layer1
+- *   publish fully transparent frame
+- *   STOP
++ * Prearm the dedicated XIMR layer1 while Canon's electronic level is
++ * stable and keep it transparent. On DELETE, copy the current Canon
++ * level frame into this already-active layer and make it opaque.
+  *
+- * No synthetic Q event.
+- * No Canon mode change.
+- * No ML menu opening.
++ * Canon's Q/backing-GUI transition then runs behind the frozen frame.
++ * ML opens only after the Canon GUI mode has committed, and the
++ * curtain remains visible until the final ML redraw is published.
+  *
+- * The user will then exercise Canon Q/MENU physically while
+- * this already-established transparent layer remains active.
++ * Do not initialize or reconfigure this XIMR backend after the
++ * synthetic Q transition has started; that ordering was unsafe on
++ * physical 5D Mark IV hardware.
+  */
+ extern int test149_5d4_gdraw_begin_rgba(
+     uint32_t **buffer,
+@@ -5741,29 +5709,22 @@ extern int test161_5d4_gdraw_blank_keepalive(void);
+ extern void test147_5d4_gdraw_disable(void);
+ 
+ static volatile int
+-test263m_transparent_prearm_active_5d4 = 0;
++level_curtain_active_5d4 = 0;
+ 
+-/*
+- * TEST263N-A-PREARMED-OPAQUE-CURTAIN
+- *
+- * 0 = dedicated layer1 active but transparent
+- * 1 = same already-active layer1 contains opaque black
+- */
+-static volatile int test263na_opaque_5d4 = 0;
+ 
+-/*
+- * TEST263N-C compile-order fix:
+- * N-B transaction state must be visible to menu_redraw_flood().
+- * Declaration moved only; runtime semantics unchanged.
+- */
+-static volatile int test263nb_auto_ml_armed_5d4 = 0;
++static volatile int level_curtain_opaque_5d4 = 0;
++
++
++static volatile int level_ml_entry_armed_5d4 = 0;
++
+ 
++static volatile int level_curtain_auto_prearmed_5d4 = 0;
+ 
+ 
+ static int
+-test263m_transparent_prearm_enable_5d4()
++level_curtain_prearm_5d4()
+ {
+-    if (test263m_transparent_prearm_active_5d4)
++    if (level_curtain_active_5d4)
+         return 0;
+ 
+     uint32_t *dst = 0;
+@@ -5799,21 +5760,17 @@ test263m_transparent_prearm_enable_5d4()
+         return rc;
+     }
+ 
+-    test263m_transparent_prearm_active_5d4 = 1;
++    level_curtain_active_5d4 = 1;
+ 
+     return 0;
+ }
+ 
+ 
+ static int
+-test263na_present_black_5d4()
++level_curtain_present_black_5d4()
+ {
+-    /*
+-     * TEST263N-A-PREARMED-OPAQUE-CURTAIN
+-     *
+-     * This test is valid only with TEST263M layer1 already active.
+-     */
+-    if (!test263m_transparent_prearm_active_5d4)
++    
++    if (!level_curtain_active_5d4)
+         return -200;
+ 
+     uint32_t *dst = 0;
+@@ -5853,15 +5810,141 @@ test263na_present_black_5d4()
+     rc = test149_5d4_gdraw_present_rgba();
+ 
+     if (rc == 0)
+-        test263na_opaque_5d4 = 1;
++        level_curtain_opaque_5d4 = 1;
++
++    return rc;
++}
++
++
++static int
++level_curtain_present_snapshot_5d4()
++{
++    if (!level_curtain_active_5d4)
++        return -300;
++
++    /*
++     * Reacquire Canon/WINSYS layer0 while the electronic level
++     * is still the active visible Canon GUI.
++     */
++    uint8_t *canon_buf =
++        rgb_vram_preinit();
++
++    struct MARV *canon =
++        rgb_vram_info;
++
++    /*
++     * If Canon's surface is unavailable, retain the already
++     * hardware-proven BLACK curtain rather than risk an exposed
++     * GUI transition.
++     */
++    if (
++        !canon_buf ||
++        !canon ||
++        !canon->bitmap_data ||
++        canon->width == 0 ||
++        canon->height == 0
++    )
++    {
++        return level_curtain_present_black_5d4();
++    }
++
++    uint32_t src_w = canon->width;
++    uint32_t src_h = canon->height;
++
++    /*
++     * Same geometry rule used by the dedicated layer1 backend.
++     *
++     * Normal 5D4 Canon RGBA surface is 960x540, with the
++     * visible ML/Canon 720x480 rectangle at +120,+30.
++     */
++    uint32_t src_ox =
++        (src_w >= 960) ? 120 : 0;
++
++    uint32_t src_oy =
++        (src_h >= 540) ? 30 : 0;
++
++    if (
++        src_w < src_ox + 720 ||
++        src_h < src_oy + 480
++    )
++    {
++        return level_curtain_present_black_5d4();
++    }
++
++    const uint32_t *src =
++        (const uint32_t *)canon->bitmap_data;
++
++    /*
++     * Layer1 was already set up by N-D.
++     *
++     * begin_rgba() therefore obtains only the inactive
++     * layer1 backbuffer; it must NOT create a new backend here.
++     */
++    uint32_t *dst = 0;
++    uint32_t pitch = 0;
++    uint32_t ox = 0;
++    uint32_t oy = 0;
++
++    int rc =
++        test149_5d4_gdraw_begin_rgba(
++            &dst,
++            &pitch,
++            &ox,
++            &oy
++        );
++
++    if (rc != 0 || !dst)
++        return rc ? rc : -301;
++
++    /*
++     * Copy the currently visible Canon level.
++     *
++     * ARGB alpha is the high byte on this RGBA path.
++     *
++     * The curtain must be fully opaque, otherwise Canon's
++     * Q/PLAY frame could become visible through transparent
++     * portions of the copied level layer.
++     *
++     * Fully-transparent source pixels become opaque black.
++     * Other pixels retain their RGB but receive full opacity.
++     */
++    for (uint32_t y = 0; y < 480; y++)
++    {
++        const uint32_t *in =
++            src +
++            (src_oy + y) * src_w +
++            src_ox;
++
++        uint32_t *out =
++            dst +
++            (oy + y) * pitch +
++            ox;
++
++        for (uint32_t x = 0; x < 720; x++)
++        {
++            uint32_t px = in[x];
++
++            if ((px & 0xFF000000u) == 0)
++                out[x] = 0xFF000000u;
++            else
++                out[x] = px | 0xFF000000u;
++        }
++    }
++
++    rc =
++        test149_5d4_gdraw_present_rgba();
++
++    if (rc == 0)
++        level_curtain_opaque_5d4 = 1;
+ 
+     return rc;
+ }
+ 
++
+ static void
+-test263m_transparent_prearm_disable_5d4()
++level_curtain_disable_5d4()
+ {
+-    if (!test263m_transparent_prearm_active_5d4)
++    if (!level_curtain_active_5d4)
+         return;
+ 
+     /*
+@@ -5870,8 +5953,9 @@ test263m_transparent_prearm_disable_5d4()
+     test161_5d4_gdraw_blank_keepalive();
+     test147_5d4_gdraw_disable();
+ 
+-    test263m_transparent_prearm_active_5d4 = 0;
+-    test263na_opaque_5d4 = 0;
++    level_curtain_active_5d4 = 0;
++    level_curtain_opaque_5d4 = 0;
++    level_curtain_auto_prearmed_5d4 = 0;
+ }
+ #endif
+ 
+@@ -5894,16 +5978,7 @@ void menu_redraw_flood()
+     {
+         if (redraw_flood_stop) break;
+         if (!menu_shown) break;
+-#ifdef CONFIG_5D4
+-        /*
+-         * TEST263K:
+-         * do not expose Canon's Q/menu transition underneath ML.
+-         */
+-        if (!test263k_level_mask_active_5d4)
+-            canon_gui_enable_front_buffer(0);
+-#else
+         canon_gui_enable_front_buffer(0);
+-#endif
+         menu_redraw_full();
+         msleep(20);
+     }
+@@ -5914,19 +5989,13 @@ void menu_redraw_flood()
+     msleep(50);
+ 
+ #ifdef CONFIG_5D4
++    
+     /*
+-     * TEST263N-C-REDRAW-FLOOD-HANDOFF
+-     *
+-     * N-B revealed the curtain before the redraw flood and exposed
+-     * one late Canon MENU frame.
+-     *
+-     * Keep layer1 opaque until all normal flood settling has
+-     * completed. Then make ML the LAST explicitly published layer0
+-     * frame and remove layer1 immediately afterward.
+-     *
+-     * No Canon GUI state transition occurs here.
++     * Keep the frozen level curtain until ML has completed the redraw
++     * flood and final RGBA publication. Removing it earlier exposes a
++     * late Canon backing-GUI frame.
+      */
+-    if (test263nb_auto_ml_armed_5d4)
++    if (level_ml_entry_armed_5d4)
+     {
+         if (menu_shown)
+         {
+@@ -5940,8 +6009,8 @@ void menu_redraw_flood()
+         /*
+          * HW-proven N-A graceful transparent -> disable sequence.
+          */
+-        test263m_transparent_prearm_disable_5d4();
+-        test263nb_auto_ml_armed_5d4 = 0;
++        level_curtain_disable_5d4();
++        level_ml_entry_armed_5d4 = 0;
+     }
+ #endif
+ 
+@@ -5963,76 +6032,26 @@ static void start_redraw_flood()
+ static int ml_menu_opened_from_lv_5d4 = 0;
+ static int ml_menu_no_host_5d4 = 0;
+ 
+-/*
+- * TEST263A-LEVEL-HOST-PIGGYBACK
+- *
+- * Canon 5D4.133 DlgOlcLevel:
+- *
+- *   global dialog slot : 0x00011E40
+- *   app handler        : 0xFE74F7B3 (Thumb)
+- *
+- * AUDIT84 showed StartShootInfoLevelApp stores its dialog in
+- * this slot and StopShootInfoLevelApp clears it.
+- *
+- * Snapshot this state before SetGUIRequestMode() destroys or
+- * replaces the active Canon dialog.
+- */
++
+ static int ml_menu_opened_from_level_5d4 = 0;
+ 
+-static int test263a_level_host_active_5d4()
++static int level_host_active_5d4()
+ {
+     return MEM(0x11E40) != 0;
+ }
+ #endif
+ 
+ 
+-
+ #ifdef CONFIG_5D4
+-/*
+- * TEST263I-Q-PLAY-PREARM-20MS
+- *
+- * Safety rule learned from TEST263H:
+- *
+- *   NEVER change Canon GUI host after ML is already open.
+- *
+- * Sequence:
+- *
+- *   LEVEL
+- *     -> fake Q
+- *     -> wait CURRENT == 0x29
+- *     -> request PLAY while ML is CLOSED
+- *     -> wait CURRENT == GUIMODE_PLAY
+- *     -> settle 20 ms while ML is CLOSED
+- *     -> open ML over the already-established host
+- *
+- * CURRENT==GUIMODE_PLAY is used only as a state boundary.
+- * The additional 20 ms is an experimental post-commit settle.
+- */
+-static volatile int test263i_stage_5d4 = 0;
+-static volatile unsigned int test263i_poll_count_5d4 = 0;
+-static int ml_menu_play_prearmed_level_5d4 = 0;
+ 
+-/*
+- * TEST263N-B-PREARMED-CURTAIN-AUTO-ML
+- *
+- * N-A HW PASS proved:
+- *
+- *   transparent prearmed layer1
+- *     -> opaque black
+- *     -> physical Q/Q
+- *     -> Canon MENU
+- *     -> transparent/disable
+- *
+- * is stable and does not cause ERR70.
+- *
+- * N-B keeps the same already-active opaque layer untouched
+- * during the automatic Q -> PLAY transaction.
+- */
++static volatile int level_ml_entry_stage_5d4 = 0;
++static volatile unsigned int level_ml_entry_poll_count_5d4 = 0;
++static int ml_menu_level_host_prepared_5d4 = 0;
+ 
+ 
+-static void test263nb_curtain_failsafe_cbr()
++static void level_ml_entry_failsafe_cbr()
+ {
+-    if (!test263nb_auto_ml_armed_5d4)
++    if (!level_ml_entry_armed_5d4)
+         return;
+ 
+     /*
+@@ -6040,19 +6059,26 @@ static void test263nb_curtain_failsafe_cbr()
+      * If anything went wrong, stop the transaction and reveal
+      * Canon rather than leaving the LCD permanently black.
+      */
+-    test263i_stage_5d4 = 0;
+-    test263i_poll_count_5d4 = 0;
+-    ml_menu_play_prearmed_level_5d4 = 0;
++    level_ml_entry_stage_5d4 = 0;
++    level_ml_entry_poll_count_5d4 = 0;
++    ml_menu_level_host_prepared_5d4 = 0;
+ 
+-    if (test263m_transparent_prearm_active_5d4)
+-        test263m_transparent_prearm_disable_5d4();
++    if (level_curtain_active_5d4)
++        level_curtain_disable_5d4();
+ 
+-    test263nb_auto_ml_armed_5d4 = 0;
++    level_ml_entry_armed_5d4 = 0;
+ }
+ 
+-static void test263i_level_q_play_cbr()
++/*
++ * Establish Canon's backing GUI while ML is still closed.
++ *
++ * Stage 1 waits for synthetic Q to commit mode 0x29.
++ * Stage 2 requests GUIMODE_PLAY and waits for that mode to commit.
++ * Only then is gui_sem released to open the ML menu.
++ */
++static void level_ml_entry_cbr()
+ {
+-    if (!test263i_stage_5d4)
++    if (!level_ml_entry_stage_5d4)
+         return;
+ 
+     /*
+@@ -6060,9 +6086,9 @@ static void test263i_level_q_play_cbr()
+      */
+     if (menu_shown || lv_5d4)
+     {
+-        test263i_stage_5d4 = 0;
+-        test263i_poll_count_5d4 = 0;
+-        ml_menu_play_prearmed_level_5d4 = 0;
++        level_ml_entry_stage_5d4 = 0;
++        level_ml_entry_poll_count_5d4 = 0;
++        ml_menu_level_host_prepared_5d4 = 0;
+         return;
+     }
+ 
+@@ -6070,42 +6096,39 @@ static void test263i_level_q_play_cbr()
+      * Stage 1:
+      * wait until fake Q has really committed Quick Control.
+      */
+-    if (test263i_stage_5d4 == 1)
++    if (level_ml_entry_stage_5d4 == 1)
+     {
+         if (CURRENT_GUI_MODE == 0x29)
+         {
+-            test263i_stage_5d4 = 2;
+-            test263i_poll_count_5d4 = 0;
++            level_ml_entry_stage_5d4 = 2;
++            level_ml_entry_poll_count_5d4 = 0;
+ 
+-            /*
+-             * Critical TEST263I property:
+-             * ML IS STILL CLOSED HERE.
+-             */
++            
+             SetGUIRequestMode(GUIMODE_PLAY);
+ 
+             delayed_call(
+                 10,
+-                test263i_level_q_play_cbr,
++                level_ml_entry_cbr,
+                 0
+             );
+ 
+             return;
+         }
+ 
+-        test263i_poll_count_5d4++;
++        level_ml_entry_poll_count_5d4++;
+ 
+-        if (test263i_poll_count_5d4 < 50)
++        if (level_ml_entry_poll_count_5d4 < 50)
+         {
+             delayed_call(
+                 10,
+-                test263i_level_q_play_cbr,
++                level_ml_entry_cbr,
+                 0
+             );
+             return;
+         }
+ 
+-        test263i_stage_5d4 = 0;
+-        test263i_poll_count_5d4 = 0;
++        level_ml_entry_stage_5d4 = 0;
++        level_ml_entry_poll_count_5d4 = 0;
+         return;
+     }
+ 
+@@ -6117,52 +6140,39 @@ static void test263i_level_q_play_cbr()
+      * every late PLAY redraw has completed, therefore CURRENT==2
+      * is followed by a short explicit settle stage.
+      */
+-    if (test263i_stage_5d4 == 2)
++    if (level_ml_entry_stage_5d4 == 2)
+     {
+         if (CURRENT_GUI_MODE == GUIMODE_PLAY)
+         {
+-            /*
+-             * TEST263J-PLAY-COMMIT-IMMEDIATE-ML
+-             *
+-             * TEST263I HW result:
+-             *
+-             *   Q -> brief PLAY -> ML stable
+-             *
+-             * Functional architecture is proven. Remove only the
+-             * +20 ms cosmetic settle and hand control to ML as soon
+-             * as Canon commits GUIMODE_PLAY.
+-             *
+-             * ML is STILL CLOSED here, so no Canon GUI transition
+-             * occurs after menu_shown becomes true.
+-             */
+-            test263i_stage_5d4 = 0;
+-            test263i_poll_count_5d4 = 0;
++            
++            level_ml_entry_stage_5d4 = 0;
++            level_ml_entry_poll_count_5d4 = 0;
+ 
+-            ml_menu_play_prearmed_level_5d4 = 1;
++            ml_menu_level_host_prepared_5d4 = 1;
+ 
+             give_semaphore(gui_sem);
+             return;
+         }
+ 
+-        test263i_poll_count_5d4++;
++        level_ml_entry_poll_count_5d4++;
+ 
+-        if (test263i_poll_count_5d4 < 50)
++        if (level_ml_entry_poll_count_5d4 < 50)
+         {
+             delayed_call(
+                 10,
+-                test263i_level_q_play_cbr,
++                level_ml_entry_cbr,
+                 0
+             );
+             return;
+         }
+ 
+-        test263i_stage_5d4 = 0;
+-        test263i_poll_count_5d4 = 0;
++        level_ml_entry_stage_5d4 = 0;
++        level_ml_entry_poll_count_5d4 = 0;
+         return;
+     }
+ 
+-    test263i_stage_5d4 = 0;
+-    test263i_poll_count_5d4 = 0;
++    level_ml_entry_stage_5d4 = 0;
++    level_ml_entry_poll_count_5d4 = 0;
+ }
+ #endif
+ 
+@@ -6176,40 +6186,26 @@ static void piggyback_canon_menu()
+     NotifyBoxHide();
+ 
+ #ifdef CONFIG_5D4
++    
+     /*
+-     * TEST263I-Q-PLAY-PREARM-20MS
+-     *
+-     * PLAY was established completely before give_semaphore().
+-     * No SetGUIRequestMode() is allowed in this opening path.
++     * Electronic Level path: Canon's backing mode was established
++     * before menu_open(), so no Canon mode transition is allowed here.
+      */
+-    if (ml_menu_play_prearmed_level_5d4)
++    if (ml_menu_level_host_prepared_5d4)
+     {
+-        ml_menu_play_prearmed_level_5d4 = 0;
++        ml_menu_level_host_prepared_5d4 = 0;
+ 
+         ml_menu_opened_from_lv_5d4 = 0;
+         ml_menu_opened_from_level_5d4 = 1;
+         ml_menu_no_host_5d4 = 0;
+ 
+-        /*
+-         * Same safe ML-side publication strategy as TEST263C,
+-         * but Canon's backing mode is already settled.
+-         */
++        
+         menu_redraw_full();
+ 
+ #ifdef FEATURE_VRAM_RGBA
+         refresh_yuv_from_rgb();
+ 
+ 
+-        /*
+-         * TEST263N-C-REDRAW-FLOOD-HANDOFF
+-         *
+-         * Do NOT reveal layer0 here.
+-         *
+-         * N-B HW result was functionally stable, but removing the
+-         * curtain at this point exposed one late Canon MENU frame.
+-         *
+-         * Keep layer1 opaque until menu_redraw_flood() completes.
+-         */
+ #endif
+ 
+         start_redraw_flood();
+@@ -6225,18 +6221,9 @@ static void piggyback_canon_menu()
+      */
+     ml_menu_opened_from_lv_5d4 = lv_5d4 ? 1 : 0;
+ 
+-    /*
+-     * TEST263A:
+-     *
+-     * DlgOlcLevel is a real Canon dialog even though the shooting
+-     * GUI may otherwise look like an idle/no-host state.
+-     *
+-     * Keep it out of TEST238 no-host handling. GUIMODE_ML_MENU
+-     * outside LiveView is GUIMODE_PLAY, so use Canon PLAY as the
+-     * temporary backing GUI and restore mode 0 on close.
+-     */
++    
+     ml_menu_opened_from_level_5d4 =
+-        (!lv_5d4 && test263a_level_host_active_5d4()) ? 1 : 0;
++        (!lv_5d4 && level_host_active_5d4()) ? 1 : 0;
+ 
+     /* TEST238: plain normal shooting needs no Canon backing GUI. */
+     ml_menu_no_host_5d4 =
+@@ -6253,21 +6240,7 @@ static void piggyback_canon_menu()
+     if (new_gui_mode != (int)CURRENT_GUI_MODE)
+     {
+ #ifdef CONFIG_5D4
+-        /*
+-         * TEST263C-LEVEL-HOST-PREPAINT
+-         *
+-         * DlgOlcLevel needs GUIMODE_PLAY as a temporary Canon host.
+-         *
+-         * Before asking Canon to switch modes, render and publish the
+-         * ML menu once while the level dialog is still active.
+-         *
+-         * This should mask both:
+-         *   - the temporary Canon PLAY frame;
+-         *   - stale indexed contents left by earlier debug/console use.
+-         *
+-         * This is restricted to the hardware-identified level host.
+-         * Normal no-host shooting and LiveView are unchanged.
+-         */
++        
+         if (ml_menu_opened_from_level_5d4)
+         {
+             menu_redraw_full();
+@@ -6329,19 +6302,7 @@ static void piggyback_canon_menu()
+          * Outside LiveView, use a shorter transition to minimize
+          * the visible Canon backing frame.
+          */
+-        /*
+-         * TEST263B-LEVEL-HOST-FAST-MASK
+-         *
+-         * DlgOlcLevel needs a Canon backing GUI, but the generic
+-         * 75 ms non-LV settling delay exposes the temporary PLAY
+-         * frame unnecessarily.
+-         *
+-         * The redraw flood is already active here. Give it one
+-         * short scheduling interval, then continue immediately
+-         * toward the ML redraw.
+-         *
+-         * Keep all other 5D4 host timings unchanged.
+-         */
++        
+         if (ml_menu_opened_from_level_5d4)
+             msleep(20);
+         else
+@@ -6500,15 +6461,6 @@ static void menu_close()
+     close_canon_menu();
+     canon_gui_enable_front_buffer(0);
+ 
+-#ifdef CONFIG_5D4
+-    /*
+-     * TEST263K:
+-     * close_canon_menu() already restored Canon underneath the mask.
+-     * The existing enable above reveals the final Canon state.
+-     */
+-    test263k_level_mask_active_5d4 = 0;
+-#endif
+-
+ 
+     #ifdef FEATURE_VRAM_RGBA
+ #ifdef CONFIG_5D4
+@@ -6673,6 +6625,69 @@ menu_task( void* unused )
+             else
+             {
+                 /* menu no longer displayed */
++
++#ifdef CONFIG_5D4
++                
++                /*
++                 * Prearm layer1 while the Electronic Level is idle and
++                 * stable. This periodic check generates no Canon GUI
++                 * event. Release it if the level disappears unused.
++                 */
++                if (
++                    !level_ml_entry_stage_5d4 &&
++                    !level_ml_entry_armed_5d4
++                )
++                {
++                    int level_now =
++                        (
++                            !lv_5d4 &&
++                            DISPLAY_IS_ON &&
++                            level_host_active_5d4()
++                        );
++
++                    if (level_now)
++                    {
++                        if (!level_curtain_active_5d4)
++                        {
++                            int rc =
++                                level_curtain_prearm_5d4();
++
++                            if (rc == 0)
++                                level_curtain_auto_prearmed_5d4 = 1;
++
++                        }
++                        else if (
++                            !level_curtain_opaque_5d4 &&
++                            !level_curtain_auto_prearmed_5d4
++                        )
++                        {
++                            /*
++                             * Adopt a transparent prearm created by
++                             * the old DELETE fallback before this
++                             * periodic check had a chance to run.
++                             */
++                            level_curtain_auto_prearmed_5d4 = 1;
++                        }
++                    }
++                    else if (level_curtain_auto_prearmed_5d4)
++                    {
++                        /*
++                         * User left the level without entering ML.
++                         * Remove only a layer owned by N-D.
++                         */
++                        if (level_curtain_active_5d4)
++                        {
++                            level_curtain_disable_5d4();
++                        }
++                        else
++                        {
++                            level_curtain_auto_prearmed_5d4 = 0;
++                        }
++
++                    }
++                }
++#endif
++
+                 /* if we changed anything in the menu, save config */
+                 extern int config_autosave;
+                 if (config_autosave && (config_dirty || menu_flags_save_dirty) && NOT_RECORDING && !ml_shutdown_requested)
+@@ -7118,54 +7133,24 @@ int handle_ml_menu_erase(struct event *event)
+ {
+ 
+ #ifdef CONFIG_5D4
++    
+     /*
+-     * TEST263M-TRANSPARENT-LAYER-PREARM
+-     *
+-     * Diagnostic interception.
+-     *
+-     * DELETE #1:
+-     *     transparent dedicated layer ON
+-     *
+-     * DELETE #2:
+-     *     transparent dedicated layer OFF
+-     *
+-     * Both events are consumed before the older Q/PLAY/ML path.
++     * Electronic Level uses a real Canon dialog and cannot use the
++     * normal no-host DELETE path. Freeze the current level frame first,
++     * then run Canon's GUI transition behind the XIMR curtain.
+      */
+     if (
+         event->param == BGMT_TRASH &&
+         !menu_shown &&
+         !lv_5d4 &&
+-        test263a_level_host_active_5d4()
++        level_host_active_5d4()
+     )
+     {
+-        /*
+-         * TEST263N-B-PREARMED-CURTAIN-AUTO-ML
+-         *
+-         * DELETE #1:
+-         *     setup layer1 + transparent present only.
+-         *
+-         * DELETE #2:
+-         *     same already-active layer -> opaque BLACK;
+-         *     then start the already-proven Q -> PLAY -> ML
+-         *     transaction.
+-         *
+-         * Critical property:
+-         *
+-         *   after fake Q is emitted, TEST263N-B performs NO
+-         *   layer1 begin/present/setup operation until ML has
+-         *   already published its first frame.
+-         */
++        
+ 
+-        if (!test263m_transparent_prearm_active_5d4)
++        if (!level_curtain_active_5d4)
+         {
+-            int rc =
+-                test263m_transparent_prearm_enable_5d4();
+-
+-            DryosDebugMsg(
+-                0, 15,
+-                "TEST263NB transparent ON rc=%d",
+-                rc
+-            );
++            level_curtain_prearm_5d4();
+ 
+             return 0;
+         }
+@@ -7174,42 +7159,31 @@ int handle_ml_menu_erase(struct event *event)
+          * Ignore repeated DELETE while Q/PLAY transaction is
+          * already running.
+          */
+-        if (test263i_stage_5d4)
++        if (level_ml_entry_stage_5d4)
+             return 0;
+ 
+-        if (!test263na_opaque_5d4)
++        if (!level_curtain_opaque_5d4)
+         {
+             int rc =
+-                test263na_present_black_5d4();
++                level_curtain_present_snapshot_5d4();
+ 
+-            DryosDebugMsg(
+-                0, 15,
+-                "TEST263NB opaque ON rc=%d",
+-                rc
+-            );
+ 
+             if (rc != 0)
+                 return 0;
+ 
+-            /*
+-             * From HERE onward the opaque layer is untouched.
+-             *
+-             * Reuse the same state machine proven by TEST263J.
+-             * Do not use TEST263K's WINSYS front-buffer mask;
+-             * N-A proved layer1 itself masks Q and MENU.
+-             */
+-            test263nb_auto_ml_armed_5d4 = 1;
++            
++            level_ml_entry_armed_5d4 = 1;
+ 
+-            test263i_stage_5d4 = 1;
+-            test263i_poll_count_5d4 = 0;
+-            ml_menu_play_prearmed_level_5d4 = 0;
++            level_ml_entry_stage_5d4 = 1;
++            level_ml_entry_poll_count_5d4 = 0;
++            ml_menu_level_host_prepared_5d4 = 0;
+ 
+             /*
+              * Independent recovery path if Q/PLAY never completes.
+              */
+             delayed_call(
+                 1500,
+-                test263nb_curtain_failsafe_cbr,
++                level_ml_entry_failsafe_cbr,
+                 0
+             );
+ 
+@@ -7217,7 +7191,7 @@ int handle_ml_menu_erase(struct event *event)
+ 
+             delayed_call(
+                 10,
+-                test263i_level_q_play_cbr,
++                level_ml_entry_cbr,
+                 0
+             );
+ 
+@@ -7228,85 +7202,15 @@ int handle_ml_menu_erase(struct event *event)
+          * Opaque but no transaction running:
+          * recovery/manual cleanup after an abnormal abort.
+          */
+-        test263m_transparent_prearm_disable_5d4();
+-        test263nb_auto_ml_armed_5d4 = 0;
++        level_curtain_disable_5d4();
++        level_ml_entry_armed_5d4 = 0;
+ 
+-        DryosDebugMsg(
+-            0, 15,
+-            "TEST263NB recovery layer OFF"
+-        );
+ 
+         return 0;
+     }
+ #endif
+ 
+ 
+-
+-#ifdef CONFIG_5D4
+-    /*
+-     * TEST263I-Q-PLAY-PREARM-20MS
+-     *
+-     * Electronic level only.
+-     *
+-     * DELETE starts a completely Canon-side transition first.
+-     * ML remains logically closed until stage 3.
+-     */
+-    if (
+-        event->param == BGMT_TRASH &&
+-        !menu_shown &&
+-        !lv_5d4
+-    )
+-    {
+-        /*
+-         * Consume repeated DELETE while the pre-arm transaction
+-         * is in flight.
+-         */
+-        if (test263i_stage_5d4)
+-            return 0;
+-
+-        if (test263a_level_host_active_5d4())
+-        {
+-            test263i_stage_5d4 = 1;
+-            test263i_poll_count_5d4 = 0;
+-            ml_menu_play_prearmed_level_5d4 = 0;
+-
+-            /*
+-             * TEST263K-FROZEN-CANON-FRAME-MASK
+-             *
+-             * Freeze the CURRENT Canon frame (electronic level)
+-             * before generating Q.
+-             *
+-             * Canon's GUI state machine is allowed to continue;
+-             * only its front-buffer drawing is suppressed.
+-             */
+-            test263k_level_mask_active_5d4 = 1;
+-            canon_gui_disable_front_buffer();
+-
+-            /*
+-             * Hard fail-safe:
+-             * the complete Q + PLAY pre-arm normally finishes well
+-             * below this. If ML never opens, restore Canon drawing.
+-             */
+-            delayed_call(
+-                1200,
+-                test263k_level_mask_failsafe_cbr,
+-                0
+-            );
+-
+-            fake_simple_button(BGMT_Q);
+-
+-            delayed_call(
+-                10,
+-                test263i_level_q_play_cbr,
+-                0
+-            );
+-
+-            return 0;
+-        }
+-    }
+-#endif
+-
+-
+ // SJE if we get here, ML GUI is almost working!
+ //    DryosDebugMsg(0, 15, "in handle_ml_menu_erase");
+     if (dofpreview)

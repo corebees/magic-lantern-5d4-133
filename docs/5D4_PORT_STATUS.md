@@ -50,7 +50,7 @@ The incomplete hashes are identifiers only and must not be used for cryptographi
 | ML GUI | `WORKING` | Opens and is usable, but is not fully stabilized |
 | Zebra refresh/lag | `INVESTIGATING` | Geometry must remain based on TEST124 |
 | Global Draw | `PARTIAL` | Shared overlay behavior is still being stabilized |
-| DELETE mapping/lifecycle | `INVESTIGATING` | Electronic Level entry has a `HW TESTED` partial checkpoint (TEST263N-C); the overall lifecycle remains unresolved |
+| DELETE mapping/lifecycle | `WORKING / HW TESTED` | M1-RC1: single-DELETE Electronic Level entry and root/submenu return passed hardware regression; other GUI hosts remain separate |
 | RTC/date-time corruption | `OPEN` | Seen at ML boot |
 | Histogram | `UNVERIFIED` | Do not claim working |
 | Focus Peaking | `UNVERIFIED` | Do not claim working |
@@ -72,3 +72,18 @@ Observed result: `Electronic Level -> black curtain -> ML`. The Canon Q and Menu
 This is not a general GUI fix. It currently requires two DELETE presses, deliberately shows a black curtain, is specific to `DlgOlcLevel`, and has not completed a full regression matrix. Display-off/no-host and LiveView remain separate problems.
 
 The exact final TEST263N-C source has now been acquired. Its `src/menu.c` SHA-256 is `e15b62ca710d9b7e6415fd3eed6b99992253815c0900d5b90f84436ee8b52c6e`. The published research patch contains 372 additions relative to the TEST263K/J `src/menu.c` baseline SHA-256 `2cef89a15d77302b321de3888a158fd2891c36286da86f03681e0d7ae30cb8dd`. Diagnostic TEST263 names and instrumentation remain intentionally present; this is reproducible research evidence, not cleaned code for `main`.
+
+
+## Electronic Level milestone — M1-RC1
+
+Status: `HARDWARE VERIFIED / M1-RC1` on physical Canon EOS 5D Mark IV firmware 1.3.3.
+
+Validated sequence: `Electronic Level -> single DELETE -> frozen Electronic Level frame -> ML`.
+
+M1-RC1 automatically prearms transparent XIMR layer1 while the level is stable. DELETE freezes the current level frame; Canon Q and backing-GUI transitions occur underneath while ML remains closed. The curtain is removed only after the final redraw flood and explicit ML publication.
+
+Regression PASS covered repeated entry, submenu DELETE to root, root DELETE to the level, leaving the level without opening ML, and physical Q/Q followed by level entry. No Canon Q/Menu frame, black transition, freeze, or Err 70 was observed.
+
+Final `src/menu.c`: `f0d4c8642d611fc3d4e12d58e7e17d0ed8327605c3c178944c345650192d8011`. Hardware-tested `autoexec.bin`: `f68867942b980cfbbcdcd22caef499f83df8a6bde31670bcf853e13485d6332d` (not committed). Pre-cleanup HW-pass source: `d1f7c56a5c3676889083baaeb08bfe0580cd52ba167ac5eed8e7dc90c2fe17f2`.
+
+Scope excludes Auto-off/Wake, display-off/no-host behavior, and LiveView. TEST263N-C remains the immediate research predecessor.
