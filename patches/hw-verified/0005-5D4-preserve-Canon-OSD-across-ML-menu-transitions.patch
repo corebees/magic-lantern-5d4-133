@@ -1,0 +1,205 @@
+From a8ff01f13edf2221186c16ff6d57a182b0556a8b Mon Sep 17 00:00:00 2001
+From: corebee <corebee@Corebee-Studio.localdomain>
+Date: Sat, 29 Aug 2026 01:00:50 +0200
+Subject: [PATCH 5/7] 5D4: preserve Canon OSD across ML menu transitions
+
+---
+ src/menu.c  | 106 ++++++++++++++++++++++++++++++++++++++++++++++++----
+ src/zebra.c |  25 ++++++++++++-
+ 2 files changed, 123 insertions(+), 8 deletions(-)
+
+diff --git a/src/menu.c b/src/menu.c
+index 7c0f3b81a..f79bc1c9c 100755
+--- a/src/menu.c
++++ b/src/menu.c
+@@ -5619,6 +5619,16 @@ static void start_redraw_flood()
+     task_create("menu_redraw_flood", 0x1c, 0, menu_redraw_flood, 0);
+ }
+ 
++#ifdef CONFIG_5D4
++/*
++ * Remember whether ML menu was opened from LiveView.
++ * Do not rely on the live value of 'lv' after changing
++ * Canon GUI mode.
++ */
++static int ml_menu_opened_from_lv_5d4 = 0;
++#endif
++
++
+ static void piggyback_canon_menu()
+ {
+ #ifdef GUIMODE_ML_MENU
+@@ -5627,11 +5637,19 @@ static void piggyback_canon_menu()
+     if (sensor_cleaning) return;
+     if (gui_state == GUISTATE_MENUDISP) return;
+     NotifyBoxHide();
+-    if (new_gui_mode != (int)CURRENT_GUI_MODE) 
++
++#ifdef CONFIG_5D4
++    /*
++     * Snapshot before SetGUIRequestMode can alter Canon GUI/LV state.
++     */
++    ml_menu_opened_from_lv_5d4 = lv ? 1 : 0;
++#endif
++
++    if (new_gui_mode != (int)CURRENT_GUI_MODE)
+     { 
+         start_redraw_flood();
+         if (lv) bmp_off(); // mask out the underlying Canon menu :)
+-        SetGUIRequestMode(new_gui_mode); msleep(200); 
++        SetGUIRequestMode(new_gui_mode); msleep(200);
+         // bmp will be enabled after first redraw
+     }
+ #endif
+@@ -5642,10 +5660,59 @@ static void close_canon_menu()
+ #ifdef GUIMODE_ML_MENU
+     if (CURRENT_GUI_MODE == 0) return;
+     if (sensor_cleaning) return;
++
++#ifdef CONFIG_5D4
++    /*
++     * 5D4 LiveView:
++     * GUIMODE_ML_MENU (0x48) itself puts Canon into
++     * GUISTATE_MENUDISP. Do not abort close_canon_menu()
++     * in that specific case, otherwise Canon never leaves
++     * the ML backing dialog and the LV button stops working.
++     */
++    if (gui_state == GUISTATE_MENUDISP &&
++        !ml_menu_opened_from_lv_5d4)
++        return;
++#else
+     if (gui_state == GUISTATE_MENUDISP) return;
++#endif
++#ifdef CONFIG_5D4
++    if (ml_menu_opened_from_lv_5d4)
++    {
++        /*
++         * 5D4 LiveView:
++         * GUIMODE_ML_MENU (0x48) creates a Canon MENUDISP
++         * backing dialog. Close it explicitly.
++         *
++         * Do not use the current value of 'lv' here.
++         */
++        bmp_off();
++        SetGUIRequestMode(0);
++
++        /*
++         * Wait up to ~1 second for Canon to leave MENUDISP.
++         */
++        for (int i = 0; i < 20; i++)
++        {
++            if (gui_state != GUISTATE_MENUDISP)
++                break;
++
++            msleep(50);
++        }
++
++    }
++    else
++    {
++        /*
++         * Normal shooting / PLAY path.
++         */
++        SetGUIRequestMode(0);
++        msleep(100);
++    }
++#else
+     if (lv) bmp_off(); // mask out the underlying Canon menu :)
+     SetGUIRequestMode(0);
+     msleep(100);
++#endif
+     // bitmap will be re-enabled in the caller
+ #endif
+ #ifdef CONFIG_5DC
+@@ -5717,18 +5784,43 @@ static void menu_close()
+     close_canon_menu();
+     canon_gui_enable_front_buffer(0);
+ 
++
+     #ifdef FEATURE_VRAM_RGBA
+-    // we need to blank the indexed RGB buffer with transparent black,
+-    // to remove ML menus.  Otherwise, floating elements that we want
+-    // to display over Canon GUI will trigger redraw, and we'll display
+-    // ML menu elements too.
++#ifdef CONFIG_5D4
++    /*
++     * In LiveView, clear ML's RGBA contents normally.
++     * Outside LiveView, Canon owns the active RGBA OSD
++     * surface, so do not zero that surface here.
++     */
++    if (lv)
++        clrscr();
++#else
+     clrscr();
+-    #endif
++#endif
++#endif
+ 
++#ifdef CONFIG_5D4
++    /*
++     * 5D4: redraw() blocks when closing the ML menu from LiveView.
++     * clrscr() has already removed the ML overlay, so skip this
++     * redraw only while LiveView is active.
++     */
++    if (!lv)
++        redraw();
++#else
+     redraw();
++#endif
++#ifdef CONFIG_5D4
++    if (ml_menu_opened_from_lv_5d4 || lv)
++        bmp_on();
+ 
++    ml_menu_opened_from_lv_5d4 = 0;
++#else
+     if (lv)
+         bmp_on();
++#endif
++
++
+ }
+ 
+ /*
+diff --git a/src/zebra.c b/src/zebra.c
+index 31fd932e8..e11d8e4cf 100644
+--- a/src/zebra.c
++++ b/src/zebra.c
+@@ -3919,7 +3919,28 @@ BMP_LOCK (
+  *       with (PlayMain, ShootOlcApp, PlayMovieGuideApp?)
+  */
+     extern struct dialog* LiveViewApp_dialog;
+-    if(LiveViewApp_dialog)
++
++#ifdef CONFIG_5D4
++    /*
++     * 5D4 uses different Canon OSD/dialog states while cycling
++     * the shooting displays with INFO.
++     *
++     * The generic D678 fallback clrscr() must not clear Canon's
++     * active RGBA surface outside LiveView.
++     */
++    if (lv)
++    {
++        if (LiveViewApp_dialog)
++        {
++            dialog_redraw(LiveViewApp_dialog);
++        }
++        else
++        {
++            clrscr();
++        }
++    }
++#else
++    if (LiveViewApp_dialog)
+     {
+         dialog_redraw(LiveViewApp_dialog); // try to redraw (this has semaphores for winsys)
+     }
+@@ -3927,6 +3948,8 @@ BMP_LOCK (
+     {
+         clrscr(); // out of luck, fallback
+     }
++#endif
++
+ #else
+ 
+     //~ if (disable_redraw) 
