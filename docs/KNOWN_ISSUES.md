@@ -6,7 +6,7 @@ Updated: 2026-09-06
 |---|---|---|---|---|
 | `GUI-01` | ML GUI lifecycle | `PARTIAL` | GUI works, but transitions and Canon repaint are not fully stable | Stabilize entry/exit without regressions |
 | `INP-01` | DELETE mapping | `INVESTIGATING` | DELETE enters ML and navigates back; root exit behavior needs a reliable host event | Continue event/lifecycle audit |
-| `INP-02` | Canon GUI flashes | `PARTIAL / HW TESTED` | TEST263N-C hides Q and Menu/PLAY flashes for Electronic Level entry by holding a prearmed XIMR curtain through final ML publication | Acquire exact N-C source; remove double DELETE/black curtain; run regression matrix |
+| `INP-02` | Canon GUI flashes | `PARTIAL / HW TESTED` | TEST263N-C hides Q and Menu/PLAY flashes for Electronic Level entry by holding a prearmed XIMR curtain through final ML publication | Remove double DELETE/black curtain, clean diagnostics, and run regression matrix |
 | `LV-01` | ML GUI in LiveView | `OPEN` | Experimental paths have produced freeze/Err 70 | Do not promote current experiment |
 | `OVL-01` | Zebra refresh/lag | `INVESTIGATING` | Real Zebra renders, but refresh/timing remains wrong | Preserve TEST124 geometry while isolating refresh |
 | `OVL-02` | Global Draw | `PARTIAL` | Overlay infrastructure is not fully stable | Stabilize before dependent features |

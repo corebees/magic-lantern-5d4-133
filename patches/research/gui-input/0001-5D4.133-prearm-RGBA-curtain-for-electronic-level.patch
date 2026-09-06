@@ -1,0 +1,430 @@
+TEST263N-C — Electronic Level prearmed XIMR curtain
+=========================================================
+
+Classification: HARDWARE CHECKPOINT
+Target: Canon EOS 5D Mark IV, firmware 1.3.3
+Hardware: physical camera
+Observed entry sequence: Electronic Level -> black curtain -> ML
+Final TEST263N-C result: PASS; no freeze or Err 70 reported
+
+Baseline src/menu.c SHA-256:
+2cef89a15d77302b321de3888a158fd2891c36286da86f03681e0d7ae30cb8dd
+
+Result src/menu.c SHA-256:
+e15b62ca710d9b7e6415fd3eed6b99992253815c0900d5b90f84436ee8b52c6e
+
+This research patch intentionally retains TEST263 diagnostic names and
+instrumentation. It is not a cleaned main-branch fix. Apply to the exact
+baseline above and verify the resulting SHA-256 before building.
+
+diff --git a/src/menu.c b/src/menu.c
+index 4251c53..6b9457a 100644
+--- a/src/menu.c
++++ b/src/menu.c
+@@ -5711,6 +5711,170 @@ static void test263k_level_mask_failsafe_cbr()
+ }
+ #endif
+ 
++#ifdef CONFIG_5D4
++/*
++ * TEST263M-TRANSPARENT-LAYER-PREARM
++ *
++ * Diagnostic only.
++ *
++ * First DELETE from electronic level:
++ *
++ *   setup dedicated XIMR layer1
++ *   publish fully transparent frame
++ *   STOP
++ *
++ * No synthetic Q event.
++ * No Canon mode change.
++ * No ML menu opening.
++ *
++ * The user will then exercise Canon Q/MENU physically while
++ * this already-established transparent layer remains active.
++ */
++extern int test149_5d4_gdraw_begin_rgba(
++    uint32_t **buffer,
++    uint32_t *pitch,
++    uint32_t *ox,
++    uint32_t *oy
++);
++extern int test149_5d4_gdraw_present_rgba(void);
++extern int test161_5d4_gdraw_blank_keepalive(void);
++extern void test147_5d4_gdraw_disable(void);
++
++static volatile int
++test263m_transparent_prearm_active_5d4 = 0;
++
++/*
++ * TEST263N-A-PREARMED-OPAQUE-CURTAIN
++ *
++ * 0 = dedicated layer1 active but transparent
++ * 1 = same already-active layer1 contains opaque black
++ */
++static volatile int test263na_opaque_5d4 = 0;
++
++/*
++ * TEST263N-C compile-order fix:
++ * N-B transaction state must be visible to menu_redraw_flood().
++ * Declaration moved only; runtime semantics unchanged.
++ */
++static volatile int test263nb_auto_ml_armed_5d4 = 0;
++
++
++
++static int
++test263m_transparent_prearm_enable_5d4()
++{
++    if (test263m_transparent_prearm_active_5d4)
++        return 0;
++
++    uint32_t *dst = 0;
++    uint32_t pitch = 0;
++    uint32_t ox = 0;
++    uint32_t oy = 0;
++
++    /*
++     * begin_rgba() sets up the dedicated backend if needed
++     * and clears visible 720x480 layer contents to zero.
++     *
++     * Zero = transparent.
++     */
++    int rc = test149_5d4_gdraw_begin_rgba(
++        &dst,
++        &pitch,
++        &ox,
++        &oy
++    );
++
++    if (rc != 0 || !dst)
++        return rc ? rc : -100;
++
++    /*
++     * Draw nothing: begin_rgba() already produced the desired
++     * fully transparent frame.
++     */
++    rc = test149_5d4_gdraw_present_rgba();
++
++    if (rc != 0)
++    {
++        test147_5d4_gdraw_disable();
++        return rc;
++    }
++
++    test263m_transparent_prearm_active_5d4 = 1;
++
++    return 0;
++}
++
++
++static int
++test263na_present_black_5d4()
++{
++    /*
++     * TEST263N-A-PREARMED-OPAQUE-CURTAIN
++     *
++     * This test is valid only with TEST263M layer1 already active.
++     */
++    if (!test263m_transparent_prearm_active_5d4)
++        return -200;
++
++    uint32_t *dst = 0;
++    uint32_t pitch = 0;
++    uint32_t ox = 0;
++    uint32_t oy = 0;
++
++    int rc = test149_5d4_gdraw_begin_rgba(
++        &dst,
++        &pitch,
++        &ox,
++        &oy
++    );
++
++    if (rc != 0 || !dst)
++        return rc ? rc : -201;
++
++    /*
++     * begin_rgba() cleared the visible region to transparent.
++     * Replace it with the same RGBA black representation used
++     * by ML's indexed -> RGBA path.
++     *
++     * Do NOT memset to zero: zero is transparent.
++     */
++    const uint32_t black =
++        indexed2rgb(COLOR_BLACK);
++
++    for (uint32_t y = 0; y < 480; y++)
++    {
++        uint32_t *out =
++            dst + (y + oy) * pitch + ox;
++
++        for (uint32_t x = 0; x < 720; x++)
++            out[x] = black;
++    }
++
++    rc = test149_5d4_gdraw_present_rgba();
++
++    if (rc == 0)
++        test263na_opaque_5d4 = 1;
++
++    return rc;
++}
++
++static void
++test263m_transparent_prearm_disable_5d4()
++{
++    if (!test263m_transparent_prearm_active_5d4)
++        return;
++
++    /*
++     * Graceful transparent-frame -> backend-disable sequence.
++     */
++    test161_5d4_gdraw_blank_keepalive();
++    test147_5d4_gdraw_disable();
++
++    test263m_transparent_prearm_active_5d4 = 0;
++    test263na_opaque_5d4 = 0;
++}
++#endif
++
+ // pump a few redraws quickly, to mask Canon's back menu
+ void menu_redraw_flood()
+ {
+@@ -5748,6 +5912,39 @@ void menu_redraw_flood()
+     refresh_yuv_from_rgb();
+ #endif
+     msleep(50);
++
++#ifdef CONFIG_5D4
++    /*
++     * TEST263N-C-REDRAW-FLOOD-HANDOFF
++     *
++     * N-B revealed the curtain before the redraw flood and exposed
++     * one late Canon MENU frame.
++     *
++     * Keep layer1 opaque until all normal flood settling has
++     * completed. Then make ML the LAST explicitly published layer0
++     * frame and remove layer1 immediately afterward.
++     *
++     * No Canon GUI state transition occurs here.
++     */
++    if (test263nb_auto_ml_armed_5d4)
++    {
++        if (menu_shown)
++        {
++            menu_redraw_full();
++
++#ifdef FEATURE_VRAM_RGBA
++            refresh_yuv_from_rgb();
++#endif
++        }
++
++        /*
++         * HW-proven N-A graceful transparent -> disable sequence.
++         */
++        test263m_transparent_prearm_disable_5d4();
++        test263nb_auto_ml_armed_5d4 = 0;
++    }
++#endif
++
+     redraw_flood_stop = 1;
+ }
+ 
+@@ -5815,6 +6012,44 @@ static volatile int test263i_stage_5d4 = 0;
+ static volatile unsigned int test263i_poll_count_5d4 = 0;
+ static int ml_menu_play_prearmed_level_5d4 = 0;
+ 
++/*
++ * TEST263N-B-PREARMED-CURTAIN-AUTO-ML
++ *
++ * N-A HW PASS proved:
++ *
++ *   transparent prearmed layer1
++ *     -> opaque black
++ *     -> physical Q/Q
++ *     -> Canon MENU
++ *     -> transparent/disable
++ *
++ * is stable and does not cause ERR70.
++ *
++ * N-B keeps the same already-active opaque layer untouched
++ * during the automatic Q -> PLAY transaction.
++ */
++
++
++static void test263nb_curtain_failsafe_cbr()
++{
++    if (!test263nb_auto_ml_armed_5d4)
++        return;
++
++    /*
++     * Normal N-B completes far before this callback.
++     * If anything went wrong, stop the transaction and reveal
++     * Canon rather than leaving the LCD permanently black.
++     */
++    test263i_stage_5d4 = 0;
++    test263i_poll_count_5d4 = 0;
++    ml_menu_play_prearmed_level_5d4 = 0;
++
++    if (test263m_transparent_prearm_active_5d4)
++        test263m_transparent_prearm_disable_5d4();
++
++    test263nb_auto_ml_armed_5d4 = 0;
++}
++
+ static void test263i_level_q_play_cbr()
+ {
+     if (!test263i_stage_5d4)
+@@ -5963,6 +6198,18 @@ static void piggyback_canon_menu()
+ 
+ #ifdef FEATURE_VRAM_RGBA
+         refresh_yuv_from_rgb();
++
++
++        /*
++         * TEST263N-C-REDRAW-FLOOD-HANDOFF
++         *
++         * Do NOT reveal layer0 here.
++         *
++         * N-B HW result was functionally stable, but removing the
++         * curtain at this point exposed one late Canon MENU frame.
++         *
++         * Keep layer1 opaque until menu_redraw_flood() completes.
++         */
+ #endif
+ 
+         start_redraw_flood();
+@@ -6870,6 +7117,131 @@ static struct longpress qset_longpress = {
+ int handle_ml_menu_erase(struct event *event)
+ {
+ 
++#ifdef CONFIG_5D4
++    /*
++     * TEST263M-TRANSPARENT-LAYER-PREARM
++     *
++     * Diagnostic interception.
++     *
++     * DELETE #1:
++     *     transparent dedicated layer ON
++     *
++     * DELETE #2:
++     *     transparent dedicated layer OFF
++     *
++     * Both events are consumed before the older Q/PLAY/ML path.
++     */
++    if (
++        event->param == BGMT_TRASH &&
++        !menu_shown &&
++        !lv_5d4 &&
++        test263a_level_host_active_5d4()
++    )
++    {
++        /*
++         * TEST263N-B-PREARMED-CURTAIN-AUTO-ML
++         *
++         * DELETE #1:
++         *     setup layer1 + transparent present only.
++         *
++         * DELETE #2:
++         *     same already-active layer -> opaque BLACK;
++         *     then start the already-proven Q -> PLAY -> ML
++         *     transaction.
++         *
++         * Critical property:
++         *
++         *   after fake Q is emitted, TEST263N-B performs NO
++         *   layer1 begin/present/setup operation until ML has
++         *   already published its first frame.
++         */
++
++        if (!test263m_transparent_prearm_active_5d4)
++        {
++            int rc =
++                test263m_transparent_prearm_enable_5d4();
++
++            DryosDebugMsg(
++                0, 15,
++                "TEST263NB transparent ON rc=%d",
++                rc
++            );
++
++            return 0;
++        }
++
++        /*
++         * Ignore repeated DELETE while Q/PLAY transaction is
++         * already running.
++         */
++        if (test263i_stage_5d4)
++            return 0;
++
++        if (!test263na_opaque_5d4)
++        {
++            int rc =
++                test263na_present_black_5d4();
++
++            DryosDebugMsg(
++                0, 15,
++                "TEST263NB opaque ON rc=%d",
++                rc
++            );
++
++            if (rc != 0)
++                return 0;
++
++            /*
++             * From HERE onward the opaque layer is untouched.
++             *
++             * Reuse the same state machine proven by TEST263J.
++             * Do not use TEST263K's WINSYS front-buffer mask;
++             * N-A proved layer1 itself masks Q and MENU.
++             */
++            test263nb_auto_ml_armed_5d4 = 1;
++
++            test263i_stage_5d4 = 1;
++            test263i_poll_count_5d4 = 0;
++            ml_menu_play_prearmed_level_5d4 = 0;
++
++            /*
++             * Independent recovery path if Q/PLAY never completes.
++             */
++            delayed_call(
++                1500,
++                test263nb_curtain_failsafe_cbr,
++                0
++            );
++
++            fake_simple_button(BGMT_Q);
++
++            delayed_call(
++                10,
++                test263i_level_q_play_cbr,
++                0
++            );
++
++            return 0;
++        }
++
++        /*
++         * Opaque but no transaction running:
++         * recovery/manual cleanup after an abnormal abort.
++         */
++        test263m_transparent_prearm_disable_5d4();
++        test263nb_auto_ml_armed_5d4 = 0;
++
++        DryosDebugMsg(
++            0, 15,
++            "TEST263NB recovery layer OFF"
++        );
++
++        return 0;
++    }
++#endif
++
++
++
+ #ifdef CONFIG_5D4
+     /*
+      * TEST263I-Q-PLAY-PREARM-20MS
