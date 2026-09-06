@@ -1,0 +1,36 @@
+From dc54be287f8a908acd465001fb0adad980539a74 Mon Sep 17 00:00:00 2001
+From: corebee <corebee@Corebee-Studio.localdomain>
+Date: Fri, 28 Aug 2026 00:24:09 +0200
+Subject: [PATCH 1/7] 5D4.133: fix semaphore stub and disable unsafe crash hook
+
+---
+ platform/5D4.133/features.h | 2 +-
+ platform/5D4.133/stubs.S    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+index 56319efc3..da2ed8a4d 100644
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -7,7 +7,7 @@
+ // This does not yet work (assumes ARM, not Thumb).  Alex recommends
+ // a good looking fix:
+ // http://www.mcternan.me.uk/ArmStackUnwinding/
+-#define CONFIG_CRASH_LOG
++#undef CONFIG_CRASH_LOG
+ 
+ #undef CONFIG_ADDITIONAL_VERSION
+ #undef CONFIG_PROP_REQUEST_CHANGE
+diff --git a/platform/5D4.133/stubs.S b/platform/5D4.133/stubs.S
+index 43d875ec6..8349d592a 100644
+--- a/platform/5D4.133/stubs.S
++++ b/platform/5D4.133/stubs.S
+@@ -236,7 +236,7 @@ THUMB_FN(0xfe9fd4a8,  CreateResLockEntry)
+ THUMB_FN(     0x1d0,  create_named_semaphore)               /* CreateBinarySemaphore */
+ THUMB_FN(     0x33E,  give_semaphore)
+ THUMB_FN(     0x2C6,  take_semaphore)
+-THUMB_FN(     0x296,  take_semaphore)
++THUMB_FN(     0x296,  take_semaphore_now)
+ 
+ /** Task info **/
+ //NSTUB(0x????????,  get_task_info_by_id)
