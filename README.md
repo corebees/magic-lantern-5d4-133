@@ -26,6 +26,12 @@ The project is built on the existing Magic Lantern codebase and on earlier 5D Ma
 
 `WORKING` does not imply complete, regression-free, or release-ready. Nothing is labelled `FIXED` without a repeatable hardware test.
 
+## Reproducible source changes
+
+The first recovered hardware-verified source series is available in [`patches/hw-verified/`](patches/hw-verified/README.md). It contains seven original Git commits based on upstream commit `cb1783df8` and ending at the hardware checkpoint `77bfce0ff`.
+
+Apply it with `git am` as documented in the patch-series README. This preserves upstream provenance instead of presenting the complete upstream tree as original work from this project.
+
 ## Documentation
 
 - [Port status](docs/5D4_PORT_STATUS.md)
