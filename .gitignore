@@ -1,0 +1,38 @@
+# Canon firmware and proprietary dumps
+ROM0.BIN
+ROM1.BIN
+SFDATA.BIN
+*.FIR
+*.fir
+*.ROM
+*.rom
+*.DMP
+*.dmp
+*.dump
+
+# Local hardware-test archives and backups
+TEST[0-9]*/
+**/TEST[0-9]*/
+*TEST[0-9]*.zip
+*TEST[0-9]*.7z
+*.bak
+*.backup
+
+# Generated build products
+autoexec.bin
+magiclantern.bin
+*.o
+*.elf
+*.map
+/build/
+
+# Logs and captures
+*.log
+*.raw
+*.yuv
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
