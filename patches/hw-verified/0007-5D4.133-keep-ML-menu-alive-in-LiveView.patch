@@ -1,0 +1,23 @@
+From 77bfce0ff4b08b93e0ae6719a883f14ad2ab8a33 Mon Sep 17 00:00:00 2001
+From: corebee <corebee@Corebee-Studio.localdomain>
+Date: Sat, 29 Aug 2026 10:17:54 +0200
+Subject: [PATCH 7/7] 5D4.133: keep ML menu alive in LiveView
+
+---
+ platform/5D4.133/features.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+index da2ed8a4d..13fe3898b 100644
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -20,3 +20,9 @@
+ // We can't yet rely on image capture.  Cam crashes due to null pointer,
+ // I think?  If it fails to AF lock, for example.
+ #define CONFIG_IMAGE_CAPTURE_NOT_WORKING
++
++/*
++ * 5D4: keep the Canon GUI dialog alive while the ML menu
++ * is displayed in LiveView.
++ */
++#define CONFIG_MENU_TIMEOUT_FIX
