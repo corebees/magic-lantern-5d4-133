@@ -1,0 +1,62 @@
+diff --git a/hw/eos/eos.c b/hw/eos/eos.c
+index c2039fdd18..fe5db11ad8 100644
+--- a/hw/eos/eos.c
++++ b/hw/eos/eos.c
+@@ -668,6 +668,8 @@ EOSRegionHandler eos_handlers[] =
+   //{ "XDMAC8",       0xC9200D40, 0xC9200D7F, eos_handle_xdmac8, 1 },
+   //{ "XDMAC8",       0xC9200D80, 0xC9200DBF, eos_handle_xdmac8, 2 },
+ 
++    /* 5D4 uses MEMDIV from 0xD9000A20; preserve legacy range below. */
++    { "MEMDIV",       0xD9000A20, 0xD90015FF, eos_handle_memdiv, 0 },
+     { "MEMDIV",       0xD9001600, 0xD900FFFF, eos_handle_memdiv, 0 },
+ 
+     { "ROMID",        0xBFE01FD0, 0xBFE01FDF, eos_handle_rom_id, 0 },
+@@ -6623,6 +6625,7 @@ unsigned int eos_handle_memdiv(unsigned int parm, unsigned int address, unsigned
+ 
+     switch (address & 0xFFFF)
+     {
++        case 0x0A24: /* 5D4: 0xD9000A20 + 4 */
+         case 0x1604:
+         {
+             msg = "MEMDIV_SETUP";
+@@ -6785,6 +6788,40 @@ unsigned int eos_handle_digic6(unsigned int parm, unsigned int address, unsigned
+             ret = 1;
+             break;
+ 
++        /*
++         * QEMU38ZZQ experimental 5D4 MOCom/Omar completion.
++         *
++         * 5D4 FW 1.3.3 registers Omar's state-2 callback on
++         * MOCom channel 1, mapped to IRQ 0x9C.
++         *
++         * The state-2 path then writes value 3 to D20F0110.
++         * Test whether that write represents the missing hardware
++         * completion source.
++         *
++         * QEMU-only diagnostic; not yet a complete MOCom model.
++         */
++        case 0xD20F0110:
++            if (!strcmp(eos_state->model->name, MODEL_NAME_5D4) &&
++                (type & MODE_WRITE) &&
++                value == 3)
++            {
++                static unsigned int q38zzq_count = 0;
++                q38zzq_count++;
++
++                msg = "5D4 MOCom/Omar completion";
++
++                fprintf(stderr,
++                        "[QEMU38ZZQ-MOCOM] D20F0110=3 -> IRQ 0x9C (#%u)\\n",
++                        q38zzq_count);
++
++                /*
++                 * Keep this asynchronous: the physical operation
++                 * completes after the command write.
++                 */
++                eos_trigger_int(0x9C, 1);
++            }
++            break;
++
+         case 0xD2030000:    /* M3: memif_wait_us */
+         case 0xD20F0000:    /* M3: many reads from FC000382, value seems ignored */
+             return 0;
