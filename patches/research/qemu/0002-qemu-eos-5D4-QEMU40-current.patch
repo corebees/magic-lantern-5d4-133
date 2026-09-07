@@ -1,0 +1,291 @@
+diff --git a/hw/eos/eos.c b/hw/eos/eos.c
+index c2039fdd18..5b42bd0277 100644
+--- a/hw/eos/eos.c
++++ b/hw/eos/eos.c
+@@ -652,6 +652,20 @@ EOSRegionHandler eos_handlers[] =
+     { "JP62",         0xC0E10000, 0xC0E1FFFF, eos_handle_jpcore, 1 },
+     { "JP57",         0xC0E20000, 0xC0E2FFFF, eos_handle_jpcore, 2 },
+ 
++    /*
++     * QEMU40EA diagnostic: 5D4 FW 1.3.3 JpCore bases.
++     * Runtime table at 0x105FC:
++     *   core0 D0100000
++     *   core1 D0110000
++     *   core2 D0120000
++     *
++     * Route these blocks to the existing JpCore emulator instead of
++     * the generic DIGIC6 catch-all.
++     */
++    { "JP5D4-0",      0xD0100000, 0xD010FFFF, eos_handle_jpcore, 0 },
++    { "JP5D4-1",      0xD0110000, 0xD011FFFF, eos_handle_jpcore, 1 },
++    { "JP5D4-2",      0xD0120000, 0xD012FFFF, eos_handle_jpcore, 2 },
++
+     { "EEKO",         0xD02C2000, 0xD02C243F, eos_handle_eeko_comm, 0 },
+ 
+     // generic catch-all for everything unhandled from this range
+@@ -668,6 +682,8 @@ EOSRegionHandler eos_handlers[] =
+   //{ "XDMAC8",       0xC9200D40, 0xC9200D7F, eos_handle_xdmac8, 1 },
+   //{ "XDMAC8",       0xC9200D80, 0xC9200DBF, eos_handle_xdmac8, 2 },
+ 
++    /* 5D4 uses MEMDIV from 0xD9000A20; preserve legacy range below. */
++    { "MEMDIV",       0xD9000A20, 0xD90015FF, eos_handle_memdiv, 0 },
+     { "MEMDIV",       0xD9001600, 0xD900FFFF, eos_handle_memdiv, 0 },
+ 
+     { "ROMID",        0xBFE01FD0, 0xBFE01FDF, eos_handle_rom_id, 0 },
+@@ -2542,6 +2558,207 @@ unsigned int eos_handle_digicX(unsigned int parm, unsigned int address, unsigned
+     const char *msg = 0;
+     unsigned int ret = 0;
+ 
++    /*
++     * QEMU40DK diagnostic, 5D4 only.
++     *
++     * Canon FW 1.3.3:
++     *   D2000208 = 1 starts channel 0 operation.
++     *   IRQ 0x8D callback reads D2000400 pending bits.
++     *   Callback acknowledges a bit by writing ~bit to D2000400.
++     *
++     * This is diagnostic emulation only; do not treat as final hardware model.
++     */
++    if (!strcmp(eos_state->model->name, MODEL_NAME_5D4))
++    {
++        static unsigned int q40dk_d200_pending = 0;
++
++        /*
++         * QEMU40EN diagnostic, 5D4 only.
++         *
++         * ResManagPostS sends:
++         *
++         *   D2000004 <- 0x01000020
++         *   D2000004 <- 0x00000000
++         *
++         * Channel pairing recovered from Canon FW:
++         *
++         *   TX channel 0 -> IRQ 0x0D
++         *   RX channel 1 -> IRQ 0x1C
++         *
++         * RX channel 1 exposes:
++         *
++         *   D2000040 : number of FIFO words
++         *   D2000054 : FIFO pop
++         *
++         * This is a causal diagnostic only, not a final SubCPU model.
++         */
++        static unsigned int q40en_target_armed = 0;
++        static unsigned int q40en_rx_fifo[2] = { 0, 0 };
++        static unsigned int q40en_rx_count = 0;
++        static unsigned int q40en_rx_pos = 0;
++        static unsigned int q40en_tx_irq = 0;
++
++        /*
++         * QEMU40EN:
++         * Capture only the exact ResManagPostS request currently under test.
++         * All unrelated D2000004 traffic keeps the previous behaviour.
++         */
++        if (address == 0xD2000004 && (type & MODE_WRITE))
++        {
++            if (value == 0x01000020)
++            {
++                q40en_target_armed = 1;
++
++                fprintf(stderr,
++                        "[QEMU40EN-D200] TX0 header=%08x captured\n",
++                        value);
++
++                return 0;
++            }
++
++            if (q40en_target_armed)
++            {
++                q40en_target_armed = 0;
++
++                fprintf(stderr,
++                        "[QEMU40EN-D200] TX0 payload=%08x\n",
++                        value);
++
++                if (value == 0)
++                {
++                    q40en_rx_fifo[0] = 0x01000020;
++                    q40en_rx_fifo[1] = 0x00000000;
++                    q40en_rx_count = 2;
++                    q40en_rx_pos = 0;
++
++                    /*
++                     * TX completion for physical channel 0.
++                     */
++                    q40en_tx_irq = 1;
++
++                    fprintf(stderr,
++                            "[QEMU40EN-D200] TX0 complete -> IRQ 0x0D\n");
++
++                    eos_trigger_int(0x0D, 1);
++
++                    /*
++                     * Deliver one 2-word reply through physical RX channel 1.
++                     */
++                    fprintf(stderr,
++                            "[QEMU40EN-D200] RX1 queued count=2 "
++                            "header=01000020 payload=00000000 "
++                            "-> IRQ 0x1C\n");
++
++                    eos_trigger_int(0x1C, 1);
++                }
++
++                return 0;
++            }
++        }
++
++        /*
++         * FE1FC71E acknowledges TX channel 0 by clearing D200000C.
++         */
++        if (q40en_tx_irq &&
++            address == 0xD200000C &&
++            (type & MODE_WRITE) &&
++            value == 0)
++        {
++            fprintf(stderr,
++                    "[QEMU40EN-D200] TX0 ACK -> deassert IRQ 0x0D\n");
++
++            q40en_tx_irq = 0;
++            eos_trigger_int(0x0D, 0);
++            return 0;
++        }
++
++        /*
++         * FE1FC768 receive dispatcher, physical RX channel 1.
++         */
++        if (address == 0xD2000040 &&
++            !(type & MODE_WRITE) &&
++            q40en_rx_count)
++        {
++            fprintf(stderr,
++                    "[QEMU40EN-D200] RX1 COUNT -> %u\n",
++                    q40en_rx_count);
++
++            return q40en_rx_count;
++        }
++
++        if (address == 0xD2000054 &&
++            !(type & MODE_WRITE) &&
++            q40en_rx_count)
++        {
++            unsigned int ret =
++                q40en_rx_fifo[q40en_rx_pos++];
++
++            fprintf(stderr,
++                    "[QEMU40EN-D200] RX1 FIFO[%u] -> %08x\n",
++                    q40en_rx_pos - 1,
++                    ret);
++
++            if (q40en_rx_pos >= q40en_rx_count)
++            {
++                q40en_rx_count = 0;
++                q40en_rx_pos = 0;
++
++                fprintf(stderr,
++                        "[QEMU40EN-D200] RX1 drained "
++                        "-> deassert IRQ 0x1C\n");
++
++                eos_trigger_int(0x1C, 0);
++            }
++
++            return ret;
++        }
++
++        if (address == 0xD2000208 &&
++            (type & MODE_WRITE) &&
++            value == 1)
++        {
++            q40dk_d200_pending |= 1;
++
++            fprintf(stderr,
++                    "[QEMU40DK-D200] D2000208=1 -> pending=%08x -> IRQ 0x8D\\n",
++                    q40dk_d200_pending);
++
++            eos_trigger_int(0x8D, 1);
++            return 0;
++        }
++
++        if (address == 0xD2000400)
++        {
++            if (type & MODE_WRITE)
++            {
++                fprintf(stderr,
++                        "[QEMU40DK-D200] D2000400 ACK value=%08x pending_before=%08x\\n",
++                        value, q40dk_d200_pending);
++
++                /*
++                 * Canon writes ~bit. AND semantics clears the acknowledged
++                 * pending bit while preserving any other pending bits.
++                 */
++                q40dk_d200_pending &= value;
++
++                fprintf(stderr,
++                        "[QEMU40DK-D200] pending_after=%08x\\n",
++                        q40dk_d200_pending);
++
++                if (!q40dk_d200_pending)
++                    eos_trigger_int(0x8D, 0);
++
++                return 0;
++            }
++
++            fprintf(stderr,
++                    "[QEMU40DK-D200] D2000400 READ -> %08x\\n",
++                    q40dk_d200_pending);
++
++            return q40dk_d200_pending;
++        }
++    }
++
+     if (address >= 0xD2230000 && address <= 0xD223FFFF) {
+         /* 0x0xD223xxxxx, 0xD22390C2 on R6 */
+         if (address == eos_state->model->card_led_address)
+@@ -6623,6 +6840,7 @@ unsigned int eos_handle_memdiv(unsigned int parm, unsigned int address, unsigned
+ 
+     switch (address & 0xFFFF)
+     {
++        case 0x0A24: /* 5D4: 0xD9000A20 + 4 */
+         case 0x1604:
+         {
+             msg = "MEMDIV_SETUP";
+@@ -6785,6 +7003,40 @@ unsigned int eos_handle_digic6(unsigned int parm, unsigned int address, unsigned
+             ret = 1;
+             break;
+ 
++        /*
++         * QEMU38ZZQ experimental 5D4 MOCom/Omar completion.
++         *
++         * 5D4 FW 1.3.3 registers Omar's state-2 callback on
++         * MOCom channel 1, mapped to IRQ 0x9C.
++         *
++         * The state-2 path then writes value 3 to D20F0110.
++         * Test whether that write represents the missing hardware
++         * completion source.
++         *
++         * QEMU-only diagnostic; not yet a complete MOCom model.
++         */
++        case 0xD20F0110:
++            if (!strcmp(eos_state->model->name, MODEL_NAME_5D4) &&
++                (type & MODE_WRITE) &&
++                value == 3)
++            {
++                static unsigned int q38zzq_count = 0;
++                q38zzq_count++;
++
++                msg = "5D4 MOCom/Omar completion";
++
++                fprintf(stderr,
++                        "[QEMU38ZZQ-MOCOM] D20F0110=3 -> IRQ 0x9C (#%u)\\n",
++                        q38zzq_count);
++
++                /*
++                 * Keep this asynchronous: the physical operation
++                 * completes after the command write.
++                 */
++                eos_trigger_int(0x9C, 1);
++            }
++            break;
++
+         case 0xD2030000:    /* M3: memif_wait_us */
+         case 0xD20F0000:    /* M3: many reads from FC000382, value seems ignored */
+             return 0;
