@@ -34,3 +34,10 @@ Labels used here: `CONFIRMED ON HARDWARE`, `STATIC RE`, `OBSERVED`, `HYPOTHESIS`
 
 - `OBSERVED`: Canon date/time corruption may occur at ML boot.
 - `OPEN`: cause and fix are not yet validated.
+
+
+## Doom module feasibility
+
+- `RESEARCH`: [Doom port feasibility for the 5D4.133](DOOM_PORT_FEASIBILITY.md) is documented from the existing Doom550D Magic Lantern module.
+- `UNVERIFIED`: Doom module loading, rendering, input, audio, filesystem writes, and cleanup have not been tested on physical 5D4 hardware.
+- Keep physical LCD (~900×600 inferred), LiveView YUV (`1024×600` observed), and ML overlay coordinates (`720×480`) strictly separate.
