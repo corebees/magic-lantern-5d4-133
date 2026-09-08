@@ -1,0 +1,1979 @@
+============================================================
+ AUDITLV15A — CURRENT LV ENTRY / Q-HOST PREP
+============================================================
+
+===== SHA =====
+c790d898eabc4be265eccbdfee40fa33851bd5e13ed9fedc84faa884fa9839f5  src/menu.c
+3383a8377cdbc099bb669974a34735b2f5848e48112ea5b2aa679bc3f05de1da  src/compositor.c
+ff94e9866b7a814e85dc38408250f39d8756653e8f7e925fed301b0bff50ebe3  src/gui.c
+cacc516c9b1fdba30f41a7ab158cc70d891c1b2979eeec6d987e2e29e52e0921  src/gui-common.c
+
+===== LV6 SYMBOLS =====
+139:testlv6_lv_menu_no_host_5d4 = 0;
+142:testlv6_publish_menu_layer1_5d4(void);
+5203:        !testlv6_lv_menu_no_host_5d4
+5362:        testlv6_lv_menu_no_host_5d4 &&
+5366:        if (testlv6_publish_menu_layer1_5d4() == 0)
+5401:        testlv6_lv_menu_no_host_5d4 &&
+5691: *         testlv6_lv_menu_no_host_5d4 != 0
+5840:        testlv6_lv_menu_no_host_5d4
+5954:            testlv6_lv_menu_no_host_5d4
+6071:    if (testlv6_lv_menu_no_host_5d4)
+6203:    if (!testlv6_lv_menu_no_host_5d4)
+6227:        testlv6_lv_menu_no_host_5d4 &&
+7117:testlv6_publish_menu_layer1_5d4(void)
+7119:    if (!testlv6_lv_menu_no_host_5d4)
+7659:    if (testlv6_lv_menu_no_host_5d4)
+7838:    if (testlv6_lv_menu_no_host_5d4)
+7991:        !testlv6_lv_menu_no_host_5d4
+8022:    if (testlv6_lv_menu_no_host_5d4)
+8043:        testlv6_lv_menu_no_host_5d4 = 0;
+8177:                        !testlv6_lv_menu_no_host_5d4
+8240:                    testlv6_lv_menu_no_host_5d4 = 0;
+8932:            testlv6_lv_menu_no_host_5d4 = 1;
+9038:            testlv6_lv_menu_no_host_5d4
+
+===== DELETE / MENU ENTRY =====
+105:extern struct semaphore * gui_sem;
+174:        fake_simple_button(BGMT_Q);
+193:        fake_simple_button(BGMT_Q);
+5663:            fake_simple_button(BGMT_Q);
+5666:            fake_simple_button(BGMT_TRASH);
+6347:            event->param == BGMT_TRASH ||
+6375:        button_code = BGMT_Q;
+6400:            give_semaphore(gui_sem);
+6417:        give_semaphore(gui_sem);
+6622:    case BGMT_Q:
+6672:    gui_sem = create_named_semaphore("gui", SEM_CREATE_LOCKED);
+6673:    DryosDebugMsg(0, 15, "created gui_sem in menu_init()");
+6727:        give_semaphore(gui_sem);
+6734:        give_semaphore(gui_sem);
+6748:        fake_simple_button(BGMT_MENU);
+7501: * Only then is gui_sem released to open the ML menu.
+7616:            give_semaphore(gui_sem);
+7905:        fake_simple_button(BGMT_MENU);
+7930:        fake_simple_button(BGMT_MENU);
+8128:        int rc = take_semaphore( gui_sem, dt );
+8155:                        fake_simple_button(keyrepeat);
+8324:        int rc = take_semaphore( gui_sem, 500 );
+8648:            fake_simple_button(longpress->long_btn_press);
+8653:                fake_simple_button(longpress->long_btn_unpress);
+8672:                fake_simple_button(longpress->short_btn_press);
+8678:                fake_simple_button(longpress->short_btn_unpress);
+8699:    .long_btn_press     = BGMT_Q,               /* long press (500ms) is interpreted as Q */
+8715:    .long_btn_press     = BGMT_TRASH,   // long press (500ms) opens ML menu.
+8716:    .short_btn_press    = BGMT_Q,       // short press => do a regular Q
+8725:    .long_btn_press     = BGMT_TRASH,           /* long press (500ms) opens ML menu */
+8733:#ifdef BGMT_Q_SET
+8735:    .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
+8745:int handle_ml_menu_erase(struct event *event)
+8756:        event->param == BGMT_TRASH &&
+8821:            fake_simple_button(BGMT_Q);
+8846://    DryosDebugMsg(0, 15, "in handle_ml_menu_erase");
+8865:        event->param == BGMT_TRASH &&
+8947:            give_semaphore(gui_sem);
+9026:     * In the 5D4 normal-shooting no-host menu, BGMT_TRASH must
+9029:     * The generic handler below toggles gui_sem, which closes the
+9034:        event->param == BGMT_TRASH &&
+9061:     * give gui_sem and perform the normal menu_close().
+9064:        event->param == BGMT_TRASH &&
+9075:    if (event->param == BGMT_TRASH ||
+9088:            give_semaphore( gui_sem );
+9098:            give_semaphore( gui_sem );
+9123:                fake_simple_button(MLEV_JOYSTICK_LONG);
+9194:    if (event->param == BGMT_Q)
+9256:#ifdef BGMT_Q_SET
+9258:    if (event->param == BGMT_Q_SET)
+9307:#if defined(BGMT_Q) && BGMT_Q > 0
+9309:    if (event->param == BGMT_Q && !gui_menu_shown())
+9318:            give_semaphore( gui_sem ); 
+9328:            give_semaphore( gui_sem ); 
+
+===== LAYER0 / CURTAIN =====
+133: *   Canon live GUI     -> XIMR layer0, disabled
+5355:     * Layer1 is already active from the frozen Canon-GUI curtain.
+6770: * curtain remains visible until the final ML redraw is published.
+6787:level_curtain_active_5d4 = 0;
+6790:static volatile int level_curtain_opaque_5d4 = 0;
+6796:static volatile int level_curtain_auto_prearmed_5d4 = 0;
+6800:level_curtain_prearm_5d4()
+6802:    if (level_curtain_active_5d4)
+6838:    level_curtain_active_5d4 = 1;
+6845:level_curtain_present_black_5d4()
+6848:    if (!level_curtain_active_5d4)
+6888:        level_curtain_opaque_5d4 = 1;
+6895:level_curtain_present_snapshot_5d4()
+6897:    if (!level_curtain_active_5d4)
+6912:     * hardware-proven BLACK curtain rather than risk an exposed
+6923:        return level_curtain_present_black_5d4();
+6946:        return level_curtain_present_black_5d4();
+6979:     * The curtain must be fully opaque, otherwise Canon's
+7013:        level_curtain_opaque_5d4 = 1;
+7021: * TESTLV2 — LiveView GUI-only frozen curtain.
+7030:    if (!level_curtain_active_5d4)
+7122:    if (!level_curtain_active_5d4)
+7166:testlv2_lv_curtain_visible_5d4 = 0;
+7170: * TESTLV4 — deferred LiveView curtain cleanup.
+7180:testlv5_5d4_canon_gui_layer_enable(int enable);
+7193:testlv5_canon_layer0_disabled_5d4 = 0;
+7200:        !testlv2_lv_curtain_visible_5d4 ||
+7210:level_curtain_disable_5d4()
+7212:    if (!level_curtain_active_5d4)
+7221:    level_curtain_active_5d4 = 0;
+7222:    level_curtain_opaque_5d4 = 0;
+7223:    level_curtain_auto_prearmed_5d4 = 0;
+7259:     * Keep the frozen level curtain until ML has completed the redraw
+7277:        level_curtain_disable_5d4();
+7490:    if (level_curtain_active_5d4)
+7491:        level_curtain_disable_5d4();
+7656:     * displaying our curtain. Do not request GUIMODE_ML_MENU,
+8025:        testlv2_lv_curtain_visible_5d4 = 0;
+8027:        if (testlv5_canon_layer0_disabled_5d4)
+8029:            testlv5_5d4_canon_gui_layer_enable(1);
+8030:            testlv5_canon_layer0_disabled_5d4 = 0;
+8033:        if (level_curtain_active_5d4)
+8038:            level_curtain_active_5d4 = 0;
+8039:            level_curtain_opaque_5d4 = 0;
+8040:            level_curtain_auto_prearmed_5d4 = 0;
+8211:                    testlv2_lv_curtain_visible_5d4 = 0;
+8220:                    if (testlv5_canon_layer0_disabled_5d4)
+8222:                        testlv5_5d4_canon_gui_layer_enable(1);
+8223:                        testlv5_canon_layer0_disabled_5d4 = 0;
+8226:                    if (level_curtain_active_5d4)
+8231:                        level_curtain_active_5d4 = 0;
+8232:                        level_curtain_opaque_5d4 = 0;
+8233:                        level_curtain_auto_prearmed_5d4 = 0;
+8263:                        if (!level_curtain_active_5d4)
+8266:                                level_curtain_prearm_5d4();
+8269:                                level_curtain_auto_prearmed_5d4 = 1;
+8273:                            !level_curtain_opaque_5d4 &&
+8274:                            !level_curtain_auto_prearmed_5d4
+8282:                            level_curtain_auto_prearmed_5d4 = 1;
+8285:                    else if (level_curtain_auto_prearmed_5d4)
+8291:                        if (level_curtain_active_5d4)
+8293:                            level_curtain_disable_5d4();
+8297:                            level_curtain_auto_prearmed_5d4 = 0;
+8753:     * then run Canon's GUI transition behind the XIMR curtain.
+8764:        if (!level_curtain_active_5d4)
+8766:            level_curtain_prearm_5d4();
+8778:        if (!level_curtain_opaque_5d4)
+8781:                level_curtain_present_snapshot_5d4();
+8836:        level_curtain_disable_5d4();
+8870:        if (!testlv2_lv_curtain_visible_5d4)
+8872:            if (!level_curtain_active_5d4)
+8875:                    level_curtain_prearm_5d4();
+8896:                testlv5_5d4_canon_gui_layer_enable(0);
+8907:                level_curtain_active_5d4 = 0;
+8908:                level_curtain_opaque_5d4 = 0;
+8909:                level_curtain_auto_prearmed_5d4 = 0;
+8914:            testlv5_canon_layer0_disabled_5d4 = 1;
+8915:            testlv2_lv_curtain_visible_5d4 = 1;
+8921:             * The curtain is now HW-proven:
+
+===== CONTEXT: LV6 FLAG =====
+
+----- lines 104..209 -----
+static struct semaphore * menu_sem;
+extern struct semaphore * gui_sem;
+static struct semaphore * menu_redraw_sem;
+static int menu_damage;
+static int menu_shown = false;
+static int menu_lv_transparent_mode; // for ISO, kelvin...
+static int config_dirty = 0;
+
+static int menu_flags_save_dirty = 0;
+static int menu_flags_load_dirty = 1;
+
+//~ static int menu_hidden_should_display_help = 0;
+static int menu_zebras_mirror_dirty = 0; // to clear zebras from mirror (avoids display artifacts if, for example, you enable false colors in menu, then you disable them, and preview LV)
+
+int menu_help_active = 0; // also used in menuhelp.c
+int menu_redraw_blocked = 0; // also used in flexinfo
+static int menu_redraw_cancel = 0;
+
+static int submenu_level = 0;
+static int edit_mode = 0;
+
+#ifdef CONFIG_5D4
+
+/*
+ * TESTLV6 — LIVEVIEW NO-HOST MENU ON DEDICATED LAYER1
+ *
+ * While active:
+ *
+ *   LiveView video     -> Canon YUV pipeline
+ *   Canon live GUI     -> XIMR layer0, disabled
+ *   ML menu            -> dedicated XIMR layer1
+ *
+ * No Canon GUI mode transition is permitted.
+ */
+static volatile int
+testlv6_lv_menu_no_host_5d4 = 0;
+
+static int
+testlv6_publish_menu_layer1_5d4(void);
+
+
+/*
+ * TEST262E-Q-REFRESH
+ *
+ * Workaround for the normal-shooting no-host root-close ghost.
+ *
+ * A physical Q press after the stale ML frame restores Canon's
+ * shooting GUI correctly.  Reproduce that action only after the
+ * ordinary ML menu_close() lifecycle has completed.
+ */
+static volatile int test262e_q_refresh_pending = 0;
+
+/*
+ * TEST262F-DOUBLE-Q-EXIT
+ *
+ * Physical hardware test:
+ *
+ *   Q -> temporary Canon Quick Control GUI
+ *   Q again after ~500 ms -> normal shooting GUI
+ *
+ * Only send the second Q if Canon really reached GUI mode 0x29.
+ */
+static void test262f_q_exit_cbr()
+{
+    if (
+        !menu_shown &&
+        !lv_5d4 &&
+        CURRENT_GUI_MODE == 0x29
+    )
+    {
+        fake_simple_button(BGMT_Q);
+    }
+}
+
+static void test262e_q_refresh_cbr()
+{
+    /*
+     * First Q: reproduce the hardware action already proven by
+     * TEST262E to remove the stale ML RGBA frame.
+     *
+     * The second Q is scheduled only after the first one has
+     * actually been submitted.
+     */
+    if (
+        !menu_shown &&
+        !lv_5d4 &&
+        CURRENT_GUI_MODE == 0
+    )
+    {
+        fake_simple_button(BGMT_Q);
+
+        /*
+         * TEST262F:
+         *
+         * 500 ms is intentionally conservative: this exact
+         * physical Q -> wait -> Q sequence was hardware-verified.
+         *
+         * The second callback checks GUI mode 0x29 again before
+         * injecting anything.
+         */
+        delayed_call(500, test262f_q_exit_cbr, 0);
+    }
+}
+#endif
+static int customize_mode = 0;
+static int advanced_mode = 0;       /* cached value; only for submenus for now */
+
+----- lines 5168..5273 -----
+    if (entry->selected && !is_visible(entry))
+    {
+        menu_entry_move(menu, -1);
+        menu_entry_move(menu, 1);
+    }
+}
+
+
+/*static void menu_select_current(int reverse)
+{
+    struct menu * menu = menus;
+    for( ; menu ; menu = menu->next )
+        if( menu->selected )
+            break;
+    menu_entry_select(menu,reverse);
+}*/
+
+CONFIG_INT("menu.upside.down", menu_upside_down, 0);
+
+static void
+menu_redraw_do()
+{
+    menu_damage = 0;
+    //~ g_submenu_width = 720;
+
+    if (!DISPLAY_IS_ON)
+        return;
+    if (sensor_cleaning)
+        return;
+    /*
+     * TESTLV6:
+     * the LV no-host menu deliberately does not own a Canon dialog.
+     */
+    if (
+        gui_state == GUISTATE_MENUDISP &&
+        !testlv6_lv_menu_no_host_5d4
+    )
+        return;
+
+    if (menu_help_active)
+    {
+        menu_help_redraw();
+        menu_damage = 0;
+    }
+    else
+    {
+        if (!lv)
+            menu_lv_transparent_mode = 0;
+        if (menu_lv_transparent_mode && edit_mode)
+            edit_mode = 0;
+
+        if (DOUBLE_BUFFERING)
+        {
+            // draw to mirror buffer to avoid flicker
+            //~ bmp_idle_copy(0); // no need, drawing is fullscreen anyway
+            bmp_draw_to_idle(1);
+        }
+
+        /*
+        int z = zebra_should_run();
+        if (menu_zebras_mirror_dirty && !z)
+        {
+            clear_zebras_from_mirror();
+            menu_zebras_mirror_dirty = 0;
+        }*/
+
+        if (menu_lv_transparent_mode)
+        {
+            bmp_fill( 0, 0, 0, 720, 480 );
+            #ifdef FEATURE_VRAM_RGBA
+            clrscr();
+            #endif
+
+            /*
+            if (z)
+            {
+                if (prev_z) copy_zebras_from_mirror();
+                else cropmark_clear_cache(); // will clear BVRAM mirror and reset cropmarks
+                menu_zebras_mirror_dirty = 1;
+            }
+            */
+            
+            if (hist_countdown == 0 && !should_draw_zoom_overlay())
+                draw_histogram_and_waveform(0); // too slow
+            else
+                hist_countdown--;
+        }
+        else
+        {
+            bmp_fill(COLOR_BLACK, 0, 40, 720, 400 );
+        }
+        //~ prev_z = z;
+        
+        menus_display( menus, 0, 0 ); 
+
+        if (!menu_lv_transparent_mode && !SUBMENU_OR_EDIT && !junkie_mode)
+        {
+            if (is_menu_active("Help"))
+                menu_show_version();
+        }
+        
+        if (menu_lv_transparent_mode) 
+        {
+            draw_ml_topbar();
+            draw_ml_bottombar();
+            bfnt_draw_char(ICON_ML_Q_BACK, 680, -5, COLOR_WHITE, NO_BG_ERASE);
+
+----- lines 5327..5432 -----
+
+#ifdef FEATURE_COLOR_SCHEME  
+    if (!bmp_color_scheme)
+    {
+        // adjust some colors for better contrast
+        alter_bitmap_palette_entry(COLOR_DARK_GREEN1_MOD, COLOR_GREEN1, 100, 100);
+        alter_bitmap_palette_entry(COLOR_DARK_GREEN2_MOD, COLOR_GREEN1, 200, 200);
+        alter_bitmap_palette_entry(COLOR_GREEN2, COLOR_GREEN2, 300, 256);
+        //~ alter_bitmap_palette_entry(COLOR_ORANGE, COLOR_ORANGE, 160, 160);
+        alter_bitmap_palette_entry(COLOR_DARK_ORANGE_MOD,   COLOR_ORANGE, 160, 160);
+        alter_bitmap_palette_entry(COLOR_DARK_CYAN1_MOD,   COLOR_CYAN, 60, 60);
+        alter_bitmap_palette_entry(COLOR_DARK_CYAN2_MOD,   COLOR_CYAN, 128, 128);
+        // alter_bitmap_palette_entry(COLOR_DARK_YELLOW_MOD,   COLOR_YELLOW, 128, 128);
+
+        if (RECORDING)
+            alter_bitmap_palette_entry(COLOR_BLACK, COLOR_BG, 256, 256);
+    }
+#endif
+
+    #ifdef CONFIG_VXWORKS   
+    set_ml_palette();    
+    #endif
+    ml_refresh_display_needed = 1;
+
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV6:
+     *
+     * Layer1 is already active from the frozen Canon-GUI curtain.
+     * Replace that frozen frame with the completed ML menu frame.
+     *
+     * test147_5d4_gdraw_active also prevents the background RGBA
+     * refresh task from publishing this indexed menu into layer0.
+     */
+    if (
+        testlv6_lv_menu_no_host_5d4 &&
+        menu_shown
+    )
+    {
+        if (testlv6_publish_menu_layer1_5d4() == 0)
+            ml_refresh_display_needed = 0;
+    }
+#endif
+}
+
+void menu_benchmark()
+{
+    SetGUIRequestMode(1);
+    msleep(1000);
+    int t0 = get_ms_clock();
+
+    for (int i = 0; i < 500; i++)
+    {
+        menu_redraw_do();
+        bmp_printf(FONT_MED, 0, 0, "%d%% ", i/5);
+    }
+    int t1 = get_ms_clock();
+
+    clrscr();
+    NotifyBox(20000, "Elapsed time: %d ms", t1 - t0);
+}
+
+static int menu_ensure_canon_dialog()
+{
+#ifndef CONFIG_VXWORKS
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV6:
+     *
+     * No Canon backing dialog exists by design.
+     * Return before both the dialog validity check and the
+     * CONFIG_MENU_TIMEOUT_FIX SetGUIRequestMode() refresh.
+     */
+    if (
+        testlv6_lv_menu_no_host_5d4 &&
+        gui_menu_shown()
+    )
+        return 1;
+
+    /* TEST239: no-host shooting has no Canon backing dialog. */
+    if (!lv_5d4 && CURRENT_GUI_MODE == 0 && gui_menu_shown())
+        return 1;
+#endif
+    if (CURRENT_GUI_MODE != GUIMODE_ML_MENU && CURRENT_GUI_MODE != GUIMODE_PLAY)
+    {
+        if (redraw_flood_stop)
+        {
+            // Canon dialog changed?
+            return 0;
+        }
+    }
+
+#if defined(CONFIG_MENU_TIMEOUT_FIX)
+    // refresh Canon dialog before it times out (EOSM, 6D etc)
+    // apparently it's the MPU that decides to turn off the underlying Canon dialog
+    // so we have to keep poking it to stay awake
+    static int last_refresh = 0;
+#ifdef CONFIG_5D4
+    if (lv_5d4 && should_run_polling_action(2000, &last_refresh))
+#else
+    if (lv && should_run_polling_action(2000, &last_refresh))
+#endif
+    {
+        SetGUIRequestMode(GUIMODE_ML_MENU);
+    }
+#endif
+
+----- lines 5366..5471 -----
+        if (testlv6_publish_menu_layer1_5d4() == 0)
+            ml_refresh_display_needed = 0;
+    }
+#endif
+}
+
+void menu_benchmark()
+{
+    SetGUIRequestMode(1);
+    msleep(1000);
+    int t0 = get_ms_clock();
+
+    for (int i = 0; i < 500; i++)
+    {
+        menu_redraw_do();
+        bmp_printf(FONT_MED, 0, 0, "%d%% ", i/5);
+    }
+    int t1 = get_ms_clock();
+
+    clrscr();
+    NotifyBox(20000, "Elapsed time: %d ms", t1 - t0);
+}
+
+static int menu_ensure_canon_dialog()
+{
+#ifndef CONFIG_VXWORKS
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV6:
+     *
+     * No Canon backing dialog exists by design.
+     * Return before both the dialog validity check and the
+     * CONFIG_MENU_TIMEOUT_FIX SetGUIRequestMode() refresh.
+     */
+    if (
+        testlv6_lv_menu_no_host_5d4 &&
+        gui_menu_shown()
+    )
+        return 1;
+
+    /* TEST239: no-host shooting has no Canon backing dialog. */
+    if (!lv_5d4 && CURRENT_GUI_MODE == 0 && gui_menu_shown())
+        return 1;
+#endif
+    if (CURRENT_GUI_MODE != GUIMODE_ML_MENU && CURRENT_GUI_MODE != GUIMODE_PLAY)
+    {
+        if (redraw_flood_stop)
+        {
+            // Canon dialog changed?
+            return 0;
+        }
+    }
+
+#if defined(CONFIG_MENU_TIMEOUT_FIX)
+    // refresh Canon dialog before it times out (EOSM, 6D etc)
+    // apparently it's the MPU that decides to turn off the underlying Canon dialog
+    // so we have to keep poking it to stay awake
+    static int last_refresh = 0;
+#ifdef CONFIG_5D4
+    if (lv_5d4 && should_run_polling_action(2000, &last_refresh))
+#else
+    if (lv && should_run_polling_action(2000, &last_refresh))
+#endif
+    {
+        SetGUIRequestMode(GUIMODE_ML_MENU);
+    }
+#endif
+
+#endif
+    return 1;
+}
+
+static struct msg_queue *menu_redraw_queue = 0;
+
+static void
+menu_redraw_task()
+{
+    DryosDebugMsg(0, 15, "starting menu_redraw_task");
+    menu_redraw_queue = (struct msg_queue *) msg_queue_create("menu_redraw_mq", 1);
+    TASK_LOOP
+    {
+        /* this loop will only receive redraw messages */
+        int msg;
+        int err = msg_queue_receive(menu_redraw_queue, (struct event**)&msg, 500);
+        if (err) {
+            //DryosDebugMsg(0, 15, "err from queue, continuing anyway: 0x%x", err);
+            //SJE FIXME - we see 0x9 errors.
+            // There looks to be only one path where msg_queue_receive() returns 9,
+            // might be useful to understand the cause
+            continue;
+        }
+        else {
+            //DryosDebugMsg(0, 15, "no err from queue");
+
+            // SJE this is a handy place to put checks you want to run periodically
+            //bmp_fill(COLOR_RED, 280, 280, 40, 40);
+            //DryosDebugMsg(0, 15, "*fec8: 0x%x", *(int *)0xfec8);
+            //clrscr();
+        }
+        
+        if (gui_menu_shown())
+        {
+            if (get_halfshutter_pressed())
+            {
+                /* close menu on half-shutter */
+                /* (the event is not always caught by the key handler) */
+
+----- lines 5656..5761 -----
+
+#ifdef CONFIG_TOUCHSCREEN
+int handle_ml_menu_touch(struct event * event)
+{
+    int button_code = event->param;
+    switch (button_code) {
+        case BGMT_TOUCH_1_FINGER:
+            fake_simple_button(BGMT_Q);
+            return 0;
+        case BGMT_TOUCH_2_FINGER:
+            fake_simple_button(BGMT_TRASH);
+            return 0;
+        case BGMT_UNTOUCH_1_FINGER:
+        case BGMT_UNTOUCH_2_FINGER:
+            return 0;
+        default:
+            return 1;
+    }
+    return 1;
+}
+#endif
+
+#ifdef CONFIG_5D4
+
+/*
+ * TESTLV13C.
+ *
+ * Observe MAIN-dial candidates only.
+ *
+ * Context A — M1:
+ *     Canon PLAY host is committed:
+ *         CURRENT_GUI_MODE == GUIMODE_PLAY
+ *
+ * Context B — TESTLV6:
+ *     dedicated LV no-host menu:
+ *         testlv6_lv_menu_no_host_5d4 != 0
+ *
+ * No event fields are modified here.
+ */
+
+#define TESTLV14A_SWITCH_SLOT_5D4 \
+    (*(volatile uintptr_t *)0x00004D30)
+
+#define TESTLV14A_CANON_SWITCH_CB_5D4 \
+    ((uintptr_t)0xFE10E879)
+
+
+static testlv14a_switch_cb_5d4_t
+    testlv14a_original_5d4 = 0;
+
+
+/*
+ * TESTLV14A callback.
+ *
+ * Absolutely no:
+ *   XIMR
+ *   file I/O
+ *   NotifyBox
+ *   GUI mode changes
+ *   property changes
+ *
+ * Record a few integers, then forward unchanged.
+ */
+static uint32_t
+testlv14a_switch_wrapper_5d4(
+    uint32_t selector,
+    uint32_t value,
+    void *context
+)
+{
+    volatile struct testlv14a_stats_5d4 *st = 0;
+
+    /*
+     * TESTLV14C:
+     * sample CURRENT_GUI_MODE at exact SwitchFromPartner time.
+     *
+     * READ ONLY.
+     */
+    {
+        uint32_t mode =
+            (uint32_t) CURRENT_GUI_MODE;
+
+        volatile struct testlv14c_mode_stats_5d4 *mst;
+
+        if (mode == 0)
+        {
+            mst = &testlv14c_m0_5d4;
+        }
+        else if (mode == 0x29)
+        {
+            mst = &testlv14c_m29_5d4;
+        }
+        else if (mode == GUIMODE_PLAY)
+        {
+            mst = &testlv14c_m2_5d4;
+        }
+        else
+        {
+            mst = &testlv14c_mother_5d4;
+        }
+
+        mst->n++;
+
+        if (selector == 13)
+        {
+            mst->sel13++;
+
+----- lines 5805..5910 -----
+            break;
+
+        case 3:
+            pst = &testlv14b_c_5d4;
+            break;
+
+        case 4:
+            pst = &testlv14b_d_5d4;
+            break;
+
+        case 5:
+            pst = &testlv14b_e_5d4;
+            break;
+
+        default:
+            break;
+    }
+
+    if (pst)
+    {
+        pst->n++;
+
+        pst->last_selector = selector;
+        pst->last_value = value;
+
+        if (selector == 13)
+            pst->sel13++;
+        else if (selector == 38)
+            pst->sel38++;
+        else
+            pst->other++;
+    }
+
+    if (
+        menu_shown &&
+        testlv6_lv_menu_no_host_5d4
+    )
+    {
+        st = &testlv14a_lv_5d4;
+    }
+    else if (
+        menu_shown &&
+        !lv_5d4 &&
+        CURRENT_GUI_MODE == GUIMODE_PLAY
+    )
+    {
+        st = &testlv14a_m1_5d4;
+    }
+
+    if (st)
+    {
+        st->n++;
+
+        st->last_selector = selector;
+        st->last_value = value;
+        st->last_context =
+            (uint32_t)(uintptr_t)context;
+
+        if (selector == 13)
+        {
+            int8_t delta =
+                (int8_t)(value & 0xFF);
+
+            st->sel13++;
+
+            if (delta < 0)
+                st->sel13_neg++;
+            else if (delta > 0)
+                st->sel13_pos++;
+        }
+        else if (selector == 14)
+        {
+            st->sel14++;
+        }
+        else if (selector == 38)
+        {
+            st->sel38++;
+        }
+        else
+        {
+            st->other++;
+        }
+    }
+
+    /*
+     * STRICT PASS-THROUGH.
+     */
+    testlv14a_switch_cb_5d4_t original =
+        testlv14a_original_5d4;
+
+    if (original)
+    {
+        return original(
+            selector,
+            value,
+            context
+        );
+    }
+
+    /*
+     * Fail-open fallback should never be reached while installed.
+     */
+    return 0;
+}
+
+
+
+----- lines 5919..6024 -----
+static void
+testlv14a_service_5d4(void)
+{
+    uintptr_t current =
+        TESTLV14A_SWITCH_SLOT_5D4;
+
+    uintptr_t wrapper =
+        (uintptr_t)testlv14a_switch_wrapper_5d4;
+
+    /*
+     * TESTLV14B:
+     *
+     * Arm the already-proven pass-through wrapper while Canon is
+     * still in native Electronic Level.
+     *
+     * Once phase 1 has started, keep ownership through the entire
+     * Q -> PLAY -> ML transaction.
+     */
+    if (
+        testlv14b_phase_5d4 == 0 &&
+        !menu_shown &&
+        !lv_5d4 &&
+        level_host_active_5d4()
+    )
+    {
+        testlv14b_phase_5d4 = 1;
+    }
+
+    int want =
+        (
+            testlv14b_phase_5d4 != 0
+        )
+        ||
+        (
+            menu_shown &&
+            testlv6_lv_menu_no_host_5d4
+        );
+
+    testlv14a_last_slot_5d4 = current;
+
+    if (want)
+    {
+        if (testlv14a_installed_5d4)
+        {
+            if (current != wrapper)
+            {
+                /*
+                 * Canon changed ownership.
+                 * Do NOT reinstall/fight it.
+                 */
+                testlv14a_installed_5d4 = 0;
+                testlv14a_original_5d4 = 0;
+                testlv14a_lost_5d4++;
+                testlv14a_unexpected_slot_5d4 =
+                    current;
+            }
+
+            return;
+        }
+
+        if (
+            current ==
+            TESTLV14A_CANON_SWITCH_CB_5D4
+        )
+        {
+            testlv14a_original_5d4 =
+                (testlv14a_switch_cb_5d4_t)
+                current;
+
+            TESTLV14A_SWITCH_SLOT_5D4 =
+                wrapper;
+
+            current =
+                TESTLV14A_SWITCH_SLOT_5D4;
+
+            testlv14a_last_slot_5d4 =
+                current;
+
+            if (current == wrapper)
+            {
+                testlv14a_installed_5d4 = 1;
+            }
+            else
+            {
+                testlv14a_original_5d4 = 0;
+                testlv14a_lost_5d4++;
+
+                testlv14a_unexpected_slot_5d4 =
+                    current;
+            }
+        }
+        else if (current == wrapper)
+        {
+            testlv14a_installed_5d4 = 1;
+        }
+        else
+        {
+            /*
+             * Unexpected Canon owner: observe only.
+             */
+            testlv14a_unexpected_slot_5d4 =
+                current;
+        }
+
+        return;
+    }
+
+----- lines 6036..6141 -----
+            TESTLV14A_SWITCH_SLOT_5D4 =
+                (uintptr_t)
+                testlv14a_original_5d4;
+
+            testlv14a_last_slot_5d4 =
+                TESTLV14A_SWITCH_SLOT_5D4;
+        }
+        else if (current != wrapper)
+        {
+            /*
+             * Canon already changed it.
+             * Do not overwrite Canon.
+             */
+            testlv14a_lost_5d4++;
+            testlv14a_unexpected_slot_5d4 =
+                current;
+        }
+
+        testlv14a_installed_5d4 = 0;
+        testlv14a_original_5d4 = 0;
+    }
+}
+
+
+static void
+testlv13c_probe_5d4(struct event *event)
+{
+    if (!event)
+        return;
+
+    if (!menu_shown)
+        return;
+
+    volatile struct testlv13c_fp_5d4 *st = 0;
+
+    if (testlv6_lv_menu_no_host_5d4)
+    {
+        st = &testlv13c_lv_5d4;
+    }
+    else if (
+        !lv_5d4 &&
+        CURRENT_GUI_MODE == GUIMODE_PLAY
+    )
+    {
+        st = &testlv13c_m1_5d4;
+    }
+    else
+    {
+        return;
+    }
+
+    uint32_t param =
+        (uint32_t) event->param;
+
+    uint32_t arg =
+        (uint32_t) event->arg;
+
+    /*
+     * MAIN dial candidates:
+     *
+     * M1 may already receive native logical LEFT/RIGHT.
+     *
+     * LV is known to receive:
+     *     param 0x61
+     *     arg   0x0B
+     */
+    if (
+        param != BGMT_WHEEL_LEFT &&
+        param != BGMT_WHEEL_RIGHT &&
+        !(
+            param == 0x61 &&
+            arg == 0x0B
+        )
+    )
+    {
+        return;
+    }
+
+    st->n++;
+
+    st->last_param = param;
+    st->last_arg = arg;
+    st->last_obj =
+        (uint32_t) event->obj;
+
+    if (param == BGMT_WHEEL_LEFT)
+    {
+        st->logical_left++;
+    }
+    else if (param == BGMT_WHEEL_RIGHT)
+    {
+        st->logical_right++;
+    }
+    else
+    {
+        st->raw61_main++;
+
+        /*
+         * Same payload-safety rule already HW-used by TESTLV7C.
+         *
+         * READ ONLY.
+         */
+        uint32_t objp =
+            (uint32_t) event->obj;
+
+        if (
+
+----- lines 6168..6273 -----
+handle_ml_menu_keys(struct event * event) 
+{
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV13C:
+     * sample BEFORE keyrepeat and BEFORE TESTLV7C translation.
+     */
+    testlv13c_probe_5d4(event);
+#endif
+
+    if (menu_shown || arrow_keys_shortcuts_active())
+        handle_ml_menu_keyrepeat(event);
+
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV7C — physical wheel decoder for TESTLV6 no-host LV menu.
+     *
+     * HW TESTLV7A/B:
+     *
+     *   param 0x61 / arg 0x0B = MAIN dial
+     *     counter = bits 8..15 of obj word 2
+     *
+     *   param 0x61 / arg 0x0A = REAR dial
+     *     counter = bits 0..7 of obj word 2
+     *
+     * Signed modular delta:
+     *   sense A = positive
+     *   sense B = negative
+     */
+    static unsigned int testlv7c_main_prev_5d4 = 0;
+    static unsigned int testlv7c_rear_prev_5d4 = 0;
+
+    static int testlv7c_main_valid_5d4 = 0;
+    static int testlv7c_rear_valid_5d4 = 0;
+
+    if (!testlv6_lv_menu_no_host_5d4)
+    {
+        testlv7c_main_valid_5d4 = 0;
+        testlv7c_rear_valid_5d4 = 0;
+    }
+#endif
+
+    if (!menu_shown)
+        return 1;
+    if (!DISPLAY_IS_ON)
+    {
+        if (event->param != BGMT_PRESS_HALFSHUTTER)
+            return 1;
+    }
+
+    // on some cameras, scroll events may arrive grouped; we can't handle it, so split into individual events
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV7C — translate DIGIC 6 physical-wheel wrapper into
+     * ordinary logical ML wheel events.
+     *
+     * Restrict completely to TESTLV6 LiveView no-host menu.
+     */
+    if (
+        testlv6_lv_menu_no_host_5d4 &&
+        event->param == 0x61 &&
+        (
+            event->arg == 0x0A ||
+            event->arg == 0x0B
+        )
+    )
+    {
+        unsigned int objp =
+            (unsigned int)event->obj;
+
+        /*
+         * Invalid payload: consume it anyway while ML owns input,
+         * so Canon cannot change shooting parameters underneath.
+         */
+        if (
+            event->obj == NULL ||
+            (objp & 0xF0000000) ||
+            objp < 0x4000
+        )
+        {
+            return 0;
+        }
+
+        volatile unsigned int *q =
+            (volatile unsigned int *)event->obj;
+
+        unsigned int w2 =
+            q[2];
+
+        unsigned int cnt = 0;
+        int delta = 0;
+
+        if (event->arg == 0x0B)
+        {
+            /*
+             * MAIN dial:
+             * positive -> logical RIGHT
+             * negative -> logical LEFT
+             */
+            cnt =
+                (w2 >> 8) & 0xFF;
+
+            if (!testlv7c_main_valid_5d4)
+            {
+                testlv7c_main_prev_5d4 = cnt;
+                testlv7c_main_valid_5d4 = 1;
+
+----- lines 6192..6297 -----
+     *
+     * Signed modular delta:
+     *   sense A = positive
+     *   sense B = negative
+     */
+    static unsigned int testlv7c_main_prev_5d4 = 0;
+    static unsigned int testlv7c_rear_prev_5d4 = 0;
+
+    static int testlv7c_main_valid_5d4 = 0;
+    static int testlv7c_rear_valid_5d4 = 0;
+
+    if (!testlv6_lv_menu_no_host_5d4)
+    {
+        testlv7c_main_valid_5d4 = 0;
+        testlv7c_rear_valid_5d4 = 0;
+    }
+#endif
+
+    if (!menu_shown)
+        return 1;
+    if (!DISPLAY_IS_ON)
+    {
+        if (event->param != BGMT_PRESS_HALFSHUTTER)
+            return 1;
+    }
+
+    // on some cameras, scroll events may arrive grouped; we can't handle it, so split into individual events
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV7C — translate DIGIC 6 physical-wheel wrapper into
+     * ordinary logical ML wheel events.
+     *
+     * Restrict completely to TESTLV6 LiveView no-host menu.
+     */
+    if (
+        testlv6_lv_menu_no_host_5d4 &&
+        event->param == 0x61 &&
+        (
+            event->arg == 0x0A ||
+            event->arg == 0x0B
+        )
+    )
+    {
+        unsigned int objp =
+            (unsigned int)event->obj;
+
+        /*
+         * Invalid payload: consume it anyway while ML owns input,
+         * so Canon cannot change shooting parameters underneath.
+         */
+        if (
+            event->obj == NULL ||
+            (objp & 0xF0000000) ||
+            objp < 0x4000
+        )
+        {
+            return 0;
+        }
+
+        volatile unsigned int *q =
+            (volatile unsigned int *)event->obj;
+
+        unsigned int w2 =
+            q[2];
+
+        unsigned int cnt = 0;
+        int delta = 0;
+
+        if (event->arg == 0x0B)
+        {
+            /*
+             * MAIN dial:
+             * positive -> logical RIGHT
+             * negative -> logical LEFT
+             */
+            cnt =
+                (w2 >> 8) & 0xFF;
+
+            if (!testlv7c_main_valid_5d4)
+            {
+                testlv7c_main_prev_5d4 = cnt;
+                testlv7c_main_valid_5d4 = 1;
+
+                /* first event establishes baseline only */
+                return 0;
+            }
+
+            delta =
+                (signed char)(
+                    (cnt - testlv7c_main_prev_5d4) & 0xFF
+                );
+
+            testlv7c_main_prev_5d4 = cnt;
+
+            if (delta == 0)
+                return 0;
+
+            event->param =
+                (delta > 0)
+                    ? BGMT_WHEEL_RIGHT
+                    : BGMT_WHEEL_LEFT;
+        }
+        else
+        {
+            /*
+             * REAR dial:
+
+----- lines 7084..7189 -----
+        const uint32_t *in =
+            src +
+            (src_oy + y) * src_w +
+            src_ox;
+
+        uint32_t *out =
+            dst +
+            (oy + y) * pitch +
+            ox;
+
+        for (uint32_t x = 0; x < 720; x++)
+        {
+            /*
+             * Critical difference from Electronic-Level M1:
+             * alpha is NOT forced opaque.
+             */
+            out[x] = in[x];
+        }
+    }
+
+    return test149_5d4_gdraw_present_rgba();
+}
+
+
+/*
+ * TESTLV6:
+ *
+ * Convert the completed 720x480 indexed ML menu directly into
+ * the already-active dedicated XIMR layer1.
+ *
+ * This deliberately bypasses Canon layer0.
+ */
+static int
+testlv6_publish_menu_layer1_5d4(void)
+{
+    if (!testlv6_lv_menu_no_host_5d4)
+        return -600;
+
+    if (!level_curtain_active_5d4)
+        return -601;
+
+    uint8_t *src =
+        bmp_vram();
+
+    if (!src)
+        return -602;
+
+    uint32_t *dst = 0;
+    uint32_t pitch = 0;
+    uint32_t ox = 0;
+    uint32_t oy = 0;
+
+    int rc =
+        test149_5d4_gdraw_begin_rgba(
+            &dst,
+            &pitch,
+            &ox,
+            &oy
+        );
+
+    if (rc != 0 || !dst)
+        return rc ? rc : -603;
+
+    for (uint32_t y = 0; y < 480; y++)
+    {
+        uint8_t *in =
+            src + BM(0, y);
+
+        uint32_t *out =
+            dst +
+            (oy + y) * pitch +
+            ox;
+
+        for (uint32_t x = 0; x < 720; x++)
+            out[x] = indexed2rgb(in[x]);
+    }
+
+    return test149_5d4_gdraw_present_rgba();
+}
+
+
+static volatile int
+testlv2_lv_curtain_visible_5d4 = 0;
+
+
+/*
+ * TESTLV4 — deferred LiveView curtain cleanup.
+ *
+ * Critical rule:
+ *
+ * delayed_call callback only requests cleanup.
+ * It must never touch XIMR.
+ *
+ * menu_task performs the actual blank + disable operation.
+ */
+extern int
+testlv5_5d4_canon_gui_layer_enable(int enable);
+
+
+static volatile int
+testlv4_lv_cleanup_pending_5d4 = 0;
+
+
+/*
+ * TESTLV5:
+ * 1 while Canon XIMR layer0 is hidden behind the frozen
+
+----- lines 7624..7729 -----
+            delayed_call(
+                10,
+                level_ml_entry_cbr,
+                0
+            );
+            return;
+        }
+
+        level_ml_entry_stage_5d4 = 0;
+        level_ml_entry_poll_count_5d4 = 0;
+        return;
+    }
+
+    level_ml_entry_stage_5d4 = 0;
+    level_ml_entry_poll_count_5d4 = 0;
+}
+#endif
+
+static void piggyback_canon_menu()
+{
+#ifdef GUIMODE_ML_MENU
+    int new_gui_mode = GUIMODE_ML_MENU;
+    if (!new_gui_mode) return;
+    if (sensor_cleaning) return;
+
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV6:
+     *
+     * LiveView itself is the host.
+     *
+     * Canon GUI layer0 is already hidden and layer1 is already
+     * displaying our curtain. Do not request GUIMODE_ML_MENU,
+     * PLAY, Q or any other Canon GUI transition.
+     */
+    if (testlv6_lv_menu_no_host_5d4)
+    {
+        ml_menu_opened_from_lv_5d4 = 1;
+        ml_menu_opened_from_level_5d4 = 0;
+        ml_menu_no_host_5d4 = 0;
+
+        NotifyBoxHide();
+
+        return;
+    }
+#endif
+
+    if (gui_state == GUISTATE_MENUDISP) return;
+    NotifyBoxHide();
+
+#ifdef CONFIG_5D4
+    
+    /*
+     * Electronic Level path: Canon's backing mode was established
+     * before menu_open(), so no Canon mode transition is allowed here.
+     */
+    if (ml_menu_level_host_prepared_5d4)
+    {
+        /*
+         * TESTLV13B E:
+         * ML opens on prepared Electronic-Level host.
+         */
+        testlv13b_capture_5d4(
+            &testlv13b_e_5d4
+        );
+
+        /*
+         * TESTLV14B phase E:
+         * ML is now opening on the prepared PLAY host.
+         */
+        testlv14b_phase_5d4 = 5;
+
+        ml_menu_level_host_prepared_5d4 = 0;
+
+        ml_menu_opened_from_lv_5d4 = 0;
+        ml_menu_opened_from_level_5d4 = 1;
+        ml_menu_no_host_5d4 = 0;
+
+        
+        menu_redraw_full();
+
+#ifdef FEATURE_VRAM_RGBA
+        refresh_yuv_from_rgb();
+
+
+#endif
+
+        start_redraw_flood();
+
+        return;
+    }
+#endif
+
+
+#ifdef CONFIG_5D4
+    /*
+     * Snapshot before SetGUIRequestMode can alter Canon GUI/LV state.
+     */
+    ml_menu_opened_from_lv_5d4 = lv_5d4 ? 1 : 0;
+
+    
+    ml_menu_opened_from_level_5d4 =
+        (!lv_5d4 && level_host_active_5d4()) ? 1 : 0;
+
+    /* TEST238: plain normal shooting needs no Canon backing GUI. */
+    ml_menu_no_host_5d4 =
+
+===== CONTEXT: DELETE HANDLER =====
+    .pos_y = 400,
+};
+#endif
+
+#if defined(CONFIG_850D)
+// This cam toggles GUI control lock with Trash button,
+// and sends a different button code depending on state of the lock.
+// There doesn't seem to be a single code for Trash,
+// so I'm using long press Q.
+static struct longpress q_longpress = {
+    .long_btn_press     = BGMT_TRASH,   // long press (500ms) opens ML menu.
+    .short_btn_press    = BGMT_Q,       // short press => do a regular Q
+    .short_btn_unpress  = BGMT_UNPRESS_Q,
+    .pos_x = 680,   /* in LiveView */
+    .pos_y = 350,   /* above ExpSim */
+};
+#endif
+
+#if defined(CONFIG_EOSM)
+static struct longpress erase_longpress = {
+    .long_btn_press     = BGMT_TRASH,           /* long press (500ms) opens ML menu */
+    .short_btn_press    = BGMT_PRESS_DOWN,      /* short press => do a regular "down/erase" */
+    .short_btn_unpress  = BGMT_UNPRESS_DOWN,
+    .pos_x = 670,   /* in LiveView */
+    .pos_y = 343,   /* above ExpSim */
+};
+#endif
+
+#ifdef BGMT_Q_SET
+static struct longpress qset_longpress = {
+    .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
+    .long_btn_unpress   = BGMT_UNPRESS_SET,     /* hack: Q-menu will disable the "unpress SET" event */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press => fake SET button (centering AF Frame in LV etc...) */
+    .short_btn_unpress  = BGMT_UNPRESS_SET,
+    .pos_x = 670,   /* outside ML menu, on the Q screen */
+    .pos_y = 343,
+};
+#endif
+
+// this should work on most cameras
+int handle_ml_menu_erase(struct event *event)
+{
+
+#ifdef CONFIG_5D4
+    
+    /*
+     * Electronic Level uses a real Canon dialog and cannot use the
+     * normal no-host DELETE path. Freeze the current level frame first,
+     * then run Canon's GUI transition behind the XIMR curtain.
+     */
+    if (
+        event->param == BGMT_TRASH &&
+        !menu_shown &&
+        !lv_5d4 &&
+        level_host_active_5d4()
+    )
+    {
+        
+
+        if (!level_curtain_active_5d4)
+        {
+            level_curtain_prearm_5d4();
+
+            return 0;
+        }
+
+        /*
+         * Ignore repeated DELETE while Q/PLAY transaction is
+         * already running.
+         */
+        if (level_ml_entry_stage_5d4)
+            return 0;
+
+        if (!level_curtain_opaque_5d4)
+        {
+            int rc =
+                level_curtain_present_snapshot_5d4();
+
+
+            if (rc != 0)
+                return 0;
+
+            
+            level_ml_entry_armed_5d4 = 1;
+
+            level_ml_entry_stage_5d4 = 1;
+            level_ml_entry_poll_count_5d4 = 0;
+            ml_menu_level_host_prepared_5d4 = 0;
+
+            /*
+             * Independent recovery path if Q/PLAY never completes.
+             */
+            delayed_call(
+                1500,
+                level_ml_entry_failsafe_cbr,
+                0
+            );
+
+            /*
+             * TESTLV13B A:
+             * Electronic Level immediately before fake Q.
+             */
+            testlv13b_reset_5d4();
+
+            testlv13b_capture_5d4(
+                &testlv13b_a_5d4
+            );
+
+            /*
+             * TESTLV14B phase B.
+             *
+             * All following SwitchFromPartner traffic occurs after
+             * the synthetic Q has been issued.
+             */
+            testlv14b_phase_5d4 = 2;
+
+            fake_simple_button(BGMT_Q);
+
+            delayed_call(
+                10,
+                level_ml_entry_cbr,
+                0
+            );
+
+            return 0;
+        }
+
+        /*
+         * Opaque but no transaction running:
+         * recovery/manual cleanup after an abnormal abort.
+         */
+        level_curtain_disable_5d4();
+        level_ml_entry_armed_5d4 = 0;
+
+
+        return 0;
+    }
+#endif
+
+
+// SJE if we get here, ML GUI is almost working!
+//    DryosDebugMsg(0, 15, "in handle_ml_menu_erase");
+    if (dofpreview)
+        return 1; // don't open menu when DOF preview is locked
+
+
+#ifdef CONFIG_5D4
+    /*
+     * TESTLV2:
+     *
+     * DELETE #1:
+     *   prearm layer1 and present the frozen Canon LV GUI.
+     *
+     * No timer and no automatic cleanup.
+     *
+     * DELETE #2:
+     *   disable layer1 directly, deliberately skipping the
+     *   transparent blank-frame handoff used by M1.
+     */
+    if (
+        event->param == BGMT_TRASH &&
+        !menu_shown &&
+        lv_5d4
+    )
+    {
+        if (!testlv2_lv_curtain_visible_5d4)
+        {
+            if (!level_curtain_active_5d4)
+            {
+                int rc =
+                    level_curtain_prearm_5d4();
+
+                if (rc != 0)
+                    return 0;
+            }
+
+            int rc =
+                testlv2_present_gui_snapshot_5d4();
+
+            if (rc != 0)
+                return 0;
+
+            /*
+             * TESTLV5:
+             *
+             * Frozen Canon GUI is now visible on ML layer1.
+             * Hide the live Canon GUI layer0.
+             *
+             * Do not touch the LiveView image pipeline.
+             */
+            rc =
+                testlv5_5d4_canon_gui_layer_enable(0);
+
+            if (rc != 0)
+            {
+                /*
+                 * TESTLV3 HW PASS:
+                 * GUI-event-context blank + disable is safe in LV.
+                 */
+                test161_5d4_gdraw_blank_keepalive();
+                test147_5d4_gdraw_disable();
+
+                level_curtain_active_5d4 = 0;
+                level_curtain_opaque_5d4 = 0;
+                level_curtain_auto_prearmed_5d4 = 0;
+
+                return 0;
+            }
+
+            testlv5_canon_layer0_disabled_5d4 = 1;
+            testlv2_lv_curtain_visible_5d4 = 1;
+            testlv4_lv_cleanup_pending_5d4 = 0;
+
+            /*
+             * TESTLV6:
+             *
+             * The curtain is now HW-proven:
+             *
+             *   moving LV
+             *   + frozen Canon GUI on layer1
+             *   + Canon GUI layer0 OFF
+             *
+             * From this point onward, open ML directly.
+             *
+             * NO fake Q.
+             * NO SetGUIRequestMode.
+             */
+            testlv6_lv_menu_no_host_5d4 = 1;
+
+            /*
+             * Retain TESTLV4 only as a failure recovery:
+             * if menu_open never happens, the callback sets a
+             * cleanup flag after 5 seconds.
+             *
+             * If menu_shown is already true, callback does nothing.
+             */
+            delayed_call(
+                5000,
+                testlv4_lv_cleanup_request_cbr,
+                0
+            );
+
+            give_semaphore(gui_sem);
+
+            return 0;
+        }
+
+        /*
+         * TESTLV4:
+         *
+         * Curtain lifecycle is automatic.
+         * Consume repeated DELETE while waiting for menu_task cleanup.
+         */
+        return 0;
+    }
+#endif
+
+// SJE useful for logging buttons
+//    DryosDebugMsg(0, 15, "event->param 0x%x", event->param);
+
+// SJE logging GUIMODE
+
+===== CONTEXT: menu_task =====
+}
+
+/*
+void show_welcome_screen()
+{
+    if (menu_first_by_icon == ICON_i) // true on first startup
+    {
+        piggyback_canon_menu();
+        canon_gui_disable();
+        clrscr();
+        bmp_printf(FONT_LARGE, 50, 100, 
+            "  Welcome to Magic Lantern!  \n"
+            "                             \n"
+            "Press DELETE to open ML menu.");
+        canon_gui_enable();
+        SetGUIRequestMode(0);
+    }
+}*/
+
+static void
+menu_task( void* unused )
+{
+    extern int ml_started;
+    while (!ml_started)
+        msleep(100);
+    
+    debug_menu_init();
+    
+    int initial_mode = 0; // shooting mode when menu was opened (if changed, menu should close)
+    
+    TASK_LOOP
+    {
+#ifdef CONFIG_5D4
+        /*
+         * TESTLV13A:
+         * read Canon RAM state only.
+         */
+        testlv13a_sample_5d4();
+
+        /*
+         * TESTLV14A install/restore only from normal menu_task context.
+         */
+        testlv14a_service_5d4();
+#endif
+
+        int keyrepeat_active = keyrepeat &&
+            (menu_shown || arrow_keys_shortcuts_active());
+        
+        int transparent_menu_magic_zoom =
+            should_draw_zoom_overlay() && menu_lv_transparent_mode;
+
+        int dt = 
+            (keyrepeat_active)
+                ?   /* repeat delay when holding a key */
+                    COERCE(100 + keyrep_countdown*5, 20, 100)
+                :   /* otherwise (no keys held) */
+                    (transparent_menu_magic_zoom ? 2000 : 500 );
+
+        int rc = take_semaphore( gui_sem, dt );
+
+        if( rc == 0 )
+        {
+            /* menu toggle request */
+            if (menu_shown)
+            {
+                menu_close();
+            }
+            else
+            {
+                menu_open();
+                initial_mode = shooting_mode;
+            }
+        }
+        else
+        {
+            /* semaphore timeout - perform periodical checks (polling) */
+            if (keyrepeat_active)
+            {
+                if (keyrep_ack) {
+                    keyrep_countdown--;
+                    if (keyrep_countdown <= 0) {
+                        keyrep_ack = 0;
+                        #ifndef CONFIG_DIGIC_678X
+                        //SJE FIXME - find out why this doesn't work, it repeats
+                        // until another key is pressed
+                        fake_simple_button(keyrepeat);
+                        #endif
+                    }
+                }
+                continue;
+            }
+
+            /* executed once at startup,
+             * and whenever new menus appear (after menu_add) */
+            if (menu_flags_load_dirty)
+            {
+                config_menu_reload_flags();
+                menu_flags_load_dirty = 0;
+            }
+            
+            if (menu_shown)
+            {
+                /* should we still display the menu? */
+                if (sensor_cleaning ||
+                    initial_mode != shooting_mode ||
+                    (
+                        gui_state == GUISTATE_MENUDISP &&
+                        !testlv6_lv_menu_no_host_5d4
+                    ) ||
+                    (!DISPLAY_IS_ON && CURRENT_GUI_MODE != GUIMODE_PLAY))
+                {
+                    /* close ML menu */
+                    gui_stop_menu();
+                    continue;
+                }
+
+                /* redraw either periodically (every 500ms),
+                 * or on request (menu_damage) */
+                if ((!menu_help_active && !menu_lv_transparent_mode) || menu_damage) {
+                    menu_redraw();
+                    ml_refresh_display_needed = 1;
+                }
+            }
+            else
+            {
+                /* menu no longer displayed */
+
+#ifdef CONFIG_5D4
+                
+                /*
+                 * TESTLV4 — safe-context LiveView cleanup.
+                 *
+                 * The delayed callback above only sets a flag.
+                 *
+                 * Perform the exact TESTLV3 HW-PASS
+                 * blank + disable sequence here, from menu_task's
+                 * normal closed-menu polling context.
+                 */
+                if (testlv4_lv_cleanup_pending_5d4)
+                {
+                    testlv4_lv_cleanup_pending_5d4 = 0;
+                    testlv2_lv_curtain_visible_5d4 = 0;
+
+                    /*
+                     * TESTLV5:
+                     *
+                     * Restore Canon GUI while frozen layer1 is still
+                     * covering the transition. Remove layer1 only
+                     * afterwards.
+                     */
+                    if (testlv5_canon_layer0_disabled_5d4)
+                    {
+                        testlv5_5d4_canon_gui_layer_enable(1);
+                        testlv5_canon_layer0_disabled_5d4 = 0;
+                    }
+
+                    if (level_curtain_active_5d4)
+                    {
+                        test161_5d4_gdraw_blank_keepalive();
+                        test147_5d4_gdraw_disable();
+
+                        level_curtain_active_5d4 = 0;
+                        level_curtain_opaque_5d4 = 0;
+                        level_curtain_auto_prearmed_5d4 = 0;
+                    }
+
+                    /*
+                     * TESTLV6:
+                     * timeout happened while menu never opened.
+                     */
+                    testlv6_lv_menu_no_host_5d4 = 0;
+                }
+
+
+                /*
+                 * Prearm layer1 while the Electronic Level is idle and
+                 * stable. This periodic check generates no Canon GUI
+                 * event. Release it if the level disappears unused.
+                 */
+                if (
+                    !level_ml_entry_stage_5d4 &&
+                    !level_ml_entry_armed_5d4
+                )
+                {
+                    int level_now =
+                        (
+                            !lv_5d4 &&
+                            DISPLAY_IS_ON &&
+                            level_host_active_5d4()
+                        );
+
+                    if (level_now)
+                    {
+                        if (!level_curtain_active_5d4)
+                        {
+                            int rc =
+                                level_curtain_prearm_5d4();
+
+                            if (rc == 0)
+                                level_curtain_auto_prearmed_5d4 = 1;
+
+                        }
+                        else if (
+                            !level_curtain_opaque_5d4 &&
+                            !level_curtain_auto_prearmed_5d4
+                        )
+                        {
+                            /*
+                             * Adopt a transparent prearm created by
+                             * the old DELETE fallback before this
+                             * periodic check had a chance to run.
+                             */
+                            level_curtain_auto_prearmed_5d4 = 1;
+                        }
+                    }
+                    else if (level_curtain_auto_prearmed_5d4)
+                    {
+                        /*
+                         * User left the level without entering ML.
+                         * Remove only a layer owned by N-D.
+                         */
+                        if (level_curtain_active_5d4)
+                        {
+                            level_curtain_disable_5d4();
+                        }
+                        else
+                        {
+                            level_curtain_auto_prearmed_5d4 = 0;
+                        }
+
+                    }
+                }
+#endif
+
+                /* if we changed anything in the menu, save config */
+                extern int config_autosave;
+                if (config_autosave && (config_dirty || menu_flags_save_dirty) && NOT_RECORDING && !ml_shutdown_requested)
+                {
+                    config_save();
+                    config_dirty = 0;
+                    menu_flags_save_dirty = 0;
+
+============================================================
+ AUDITLV15A COMPLETE
+============================================================
