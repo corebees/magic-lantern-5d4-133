@@ -22,8 +22,8 @@ Labels used here: `CONFIRMED ON HARDWARE`, `STATIC RE`, `OBSERVED`, `HYPOTHESIS`
 - `CONFIRMED ON HARDWARE`: ML GUI opens and submenu navigation works.
 - `OBSERVED`: DELETE behavior differs between root and submenu contexts; a Canon Q-related repaint/event can restore the Canon GUI.
 - `OBSERVED`: recent fake-Q and masking tests reduce some transitions but still expose Canon GUI flashes.
-- `OBSERVED`: experimental LiveView menu-entry paths have frozen or produced Err 70.
-- `UNVERIFIED`: no-host and static-curtain approaches are not accepted fixes.
+- `CONFIRMED ON HARDWARE`: TESTLV15D-B provides clean LiveView ML entry and exit over moving video using a dedicated layer1 curtain and hidden Canon Quick Control input host.
+- `CONFIRMED ON HARDWARE`: periodic same-state mode `0x29` refresh prevents the native Quick Control timeout and keeps MAIN/REAR from changing Tv/Av while ML is open.
 
 ## Global Draw and dependent tools
 
@@ -66,3 +66,16 @@ Regression PASS covered repeated entry, submenu DELETE to root, root DELETE to E
 Final source SHA-256: `f0d4c8642d611fc3d4e12d58e7e17d0ed8327605c3c178944c345650192d8011`. Hardware-tested `autoexec.bin`: `f68867942b980cfbbcdcd22caef499f83df8a6bde31670bcf853e13485d6332d` (not committed). Immediate predecessor N-C source: `e15b62ca710d9b7e6415fd3eed6b99992253815c0900d5b90f84436ee8b52c6e`.
 
 Do not initialize XIMR after synthetic Q, change Canon host after ML becomes visible, or remove the curtain before final ML publication. `GUIMODE_PLAY` value 2 may visibly resemble Canon MENU on this hardware; describe it as the backing-GUI transition. Scope excludes Auto-off/Wake and LiveView.
+
+
+## TESTLV15D-B — LiveView menu and Q-host ownership
+
+**HARDWARE VERIFIED FUNCTIONAL MILESTONE / RESEARCH CHECKPOINT** on physical Canon EOS 5D Mark IV firmware 1.3.3.
+
+Entry snapshots the current Canon LiveView GUI into dedicated XIMR layer1 with alpha preserved, hides Canon layer0, requests Quick Control underneath, waits for mode `0x29`, and then opens ML. LiveView YUV continues moving beneath the ML overlay without a visible Q flash.
+
+Quick Control is retained as the input-ownership host. MAIN and REAR navigate ML without changing Tv/Av or moving the diaphragm. Canon normally times this host out after roughly 10 seconds; TESTLV15D-A established causally that a same-state `SetGUIRequestMode(0x29)` refresh extends the timeout, and TESTLV15D-B validated an approximately 2000 ms keepalive.
+
+On root DELETE, ML remains visible while a hidden Q event makes Canon leave mode `0x29`; Canon layer0 is then restored and layer1 is blanked/disabled. Normal LiveView and immediate Tv/Av wheel ownership return. No freeze or Err 70 was observed in the validated regression.
+
+Safety invariant: never leave ML visible if mode `0x29` is unexpectedly lost; close/recover through the normal lifecycle. The checkpoint intentionally retains TESTLV diagnostic instrumentation. Exact result hashes: `src/menu.c` `6408dad4d4312d8b97a2a19f2b5821774aaa795fc8346a80bbd27e8d059e9fc4`; `src/compositor.c` `3383a8377cdbc099bb669974a34735b2f5848e48112ea5b2aa679bc3f05de1da`; `src/gui.c` `ff94e9866b7a814e85dc38408250f39d8756653e8f7e925fed301b0bff50ebe3`; `src/gui-common.c` `cacc516c9b1fdba30f41a7ab158cc70d891c1b2979eeec6d987e2e29e52e0921`.

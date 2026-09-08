@@ -47,7 +47,7 @@ The incomplete hashes are identifiers only and must not be used for cryptographi
 
 | Area | Status | Qualification |
 |---|---|---|
-| ML GUI | `WORKING` | Opens and is usable, but is not fully stabilized |
+| ML GUI | `WORKING / HW TESTED` | Electronic Level and LiveView entry/exit paths are hardware-verified; other GUI hosts remain separate |
 | Zebra refresh/lag | `INVESTIGATING` | Geometry must remain based on TEST124 |
 | Global Draw | `PARTIAL` | Shared overlay behavior is still being stabilized |
 | DELETE mapping/lifecycle | `WORKING / HW TESTED` | M1-RC1: single-DELETE Electronic Level entry and root/submenu return passed hardware regression; other GUI hosts remain separate |
@@ -58,7 +58,7 @@ The incomplete hashes are identifiers only and must not be used for cryptographi
 
 ## Current limitations
 
-There is no claim of release stability, complete feature coverage, or safe everyday use. Canon firmware, dumps, and proprietary material are outside the repository. Recent fake-Q, no-host, static-curtain, and LiveView GUI experiments remain research evidence rather than verified fixes.
+There is no claim of release stability, complete feature coverage, or safe everyday use. Canon firmware, dumps, and proprietary material are outside the repository. LiveView menu entry now has a hardware-verified research checkpoint. Normal shooting, Quick Control display-state integration, display-off, Auto-off/Wake, and general GUI cleanup remain outside this checkpoint.
 
 
 ## Electronic Level entry checkpoint — TEST263N-C
@@ -87,3 +87,16 @@ Regression PASS covered repeated entry, submenu DELETE to root, root DELETE to t
 Final `src/menu.c`: `f0d4c8642d611fc3d4e12d58e7e17d0ed8327605c3c178944c345650192d8011`. Hardware-tested `autoexec.bin`: `f68867942b980cfbbcdcd22caef499f83df8a6bde31670bcf853e13485d6332d` (not committed). Pre-cleanup HW-pass source: `d1f7c56a5c3676889083baaeb08bfe0580cd52ba167ac5eed8e7dc90c2fe17f2`.
 
 Scope excludes Auto-off/Wake, display-off/no-host behavior, and LiveView. TEST263N-C remains the immediate research predecessor.
+
+
+## LiveView ML menu milestone — TESTLV15D-B
+
+Status: `HARDWARE VERIFIED / RESEARCH CHECKPOINT` on physical Canon EOS 5D Mark IV firmware 1.3.3.
+
+Validated sequence: `LiveView -> DELETE -> frozen Canon GUI frame -> ML over moving LiveView`. Canon XIMR layer0 is hidden while the menu is published on dedicated layer1. Hidden Quick Control mode `0x29` owns MAIN and REAR wheel input, with a same-state refresh approximately every 2000 ms to prevent the native roughly 10-second timeout.
+
+Hardware regression confirmed clean entry and exit, moving LiveView beneath ML, one ML movement per MAIN detent, MAIN/REAR isolation from Tv/Av and the physical diaphragm, restoration of shooting-wheel ownership after exit, no visible Canon Q flash, and no observed freeze or Err 70.
+
+Exact incremental source patch: M1-RC1 `src/menu.c` SHA-256 `f0d4c8642d611fc3d4e12d58e7e17d0ed8327605c3c178944c345650192d8011` to LiveView result `6408dad4d4312d8b97a2a19f2b5821774aaa795fc8346a80bbd27e8d059e9fc4`. Hardware-tested `autoexec.bin`: `347738d8b3a7bcec6abdb4c9b8d23167586b45ccd17cdf0b8fe89da98091d4c4` (not committed).
+
+TESTLV instrumentation remains intentionally present. Normal shooting, the INFO-cycle Quick Control display, display-off, Auto-off/Wake, and LiveView cleanup are separate follow-up work.
