@@ -1,0 +1,85 @@
+============================================================
+ QEMU40HP RESULT
+============================================================
+GDB_RC=0
+
+===== CALLBACK PATH =====
+[QEMU40HP] FE17E064 REQUEST #1 R0=0031f9c8 R1=02b401b6
+[QEMU40HP] RTC DISPATCH #1 R0=0031f99c R1=002ef884 R2=00000028 R3=fe17c9a5
+[QEMU40HP-CALLBACK-PASS]
+[QEMU40HP] FE17E064 RETURN #1 R0=00000000 callback_hits=1
+[QEMU40HP-COMPLETE-AFTER-CALLBACK]
+
+===== HN FRAME =====
+[QEMU40HO-ARM-TRACE] A04=21700000 cfg=801181C2 model=5D4\n[QEMU40HN-RTC] arm 18-byte BCD frame
+[QEMU40HD-RTCMMIO] W addr=D9840A08 value=00000000 ret=00000000 type=20\n[QEMU40HN-RTC] data[0] addr=D98401C3 -> 20
+[QEMU40HD-RTCMMIO] R addr=D98401C3 value=00000000 ret=00000020 type=10\n[QEMU40HN-RTC] data[1] addr=D98401C2 -> 34
+[QEMU40HD-RTCMMIO] R addr=D98401C2 value=00000000 ret=00000034 type=10\n[QEMU40HN-RTC] data[2] addr=D98401C1 -> 12
+[QEMU40HD-RTCMMIO] R addr=D98401C1 value=00000000 ret=00000012 type=10\n[QEMU40HN-RTC] data[3] addr=D98401C0 -> 02
+[QEMU40HD-RTCMMIO] R addr=D98401C0 value=00000000 ret=00000002 type=10\n[QEMU40HN-RTC] data[4] addr=D98401C7 -> 01
+[QEMU40HD-RTCMMIO] R addr=D98401C7 value=00000000 ret=00000001 type=10\n[QEMU40HN-RTC] data[5] addr=D98401C6 -> 01
+[QEMU40HD-RTCMMIO] R addr=D98401C6 value=00000000 ret=00000001 type=10\n[QEMU40HN-RTC] data[6] addr=D98401C5 -> 24
+[QEMU40HD-RTCMMIO] R addr=D98401C5 value=00000000 ret=00000024 type=10\n[QEMU40HN-RTC] data[7] addr=D98401C4 -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401C4 value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[8] addr=D98401CB -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CB value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[9] addr=D98401CA -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CA value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[10] addr=D98401C9 -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401C9 value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[11] addr=D98401C8 -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401C8 value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[12] addr=D98401CF -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CF value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[13] addr=D98401CE -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CE value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[14] addr=D98401CD -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CD value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[15] addr=D98401CC -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CC value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[16] addr=D98401D3 -> 20
+[QEMU40HD-RTCMMIO] R addr=D98401D3 value=00000000 ret=00000020 type=10\n[QEMU40HN-RTC] data[17] addr=D98401D2 -> 00
+[QEMU40HN-RTC] frame complete
+[QEMU40HO-ARM-TRACE] A04=21700000 cfg=801181C2 model=5D4\n[QEMU40HN-RTC] arm 18-byte BCD frame
+[QEMU40HD-RTCMMIO] W addr=D9840A08 value=00000000 ret=00000000 type=20\n[QEMU40HN-RTC] data[0] addr=D98401C3 -> 20
+[QEMU40HD-RTCMMIO] R addr=D98401C3 value=00000000 ret=00000020 type=10\n[QEMU40HN-RTC] data[1] addr=D98401C2 -> 34
+[QEMU40HD-RTCMMIO] R addr=D98401C2 value=00000000 ret=00000034 type=10\n[QEMU40HN-RTC] data[2] addr=D98401C1 -> 12
+[QEMU40HD-RTCMMIO] R addr=D98401C1 value=00000000 ret=00000012 type=10\n[QEMU40HN-RTC] data[3] addr=D98401C0 -> 02
+[QEMU40HD-RTCMMIO] R addr=D98401C0 value=00000000 ret=00000002 type=10\n[QEMU40HN-RTC] data[4] addr=D98401C7 -> 01
+[QEMU40HD-RTCMMIO] R addr=D98401C7 value=00000000 ret=00000001 type=10\n[QEMU40HN-RTC] data[5] addr=D98401C6 -> 01
+[QEMU40HD-RTCMMIO] R addr=D98401C6 value=00000000 ret=00000001 type=10\n[QEMU40HN-RTC] data[6] addr=D98401C5 -> 24
+[QEMU40HD-RTCMMIO] R addr=D98401C5 value=00000000 ret=00000024 type=10\n[QEMU40HN-RTC] data[7] addr=D98401C4 -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401C4 value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[8] addr=D98401CB -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CB value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[9] addr=D98401CA -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CA value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[10] addr=D98401C9 -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401C9 value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[11] addr=D98401C8 -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401C8 value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[12] addr=D98401CF -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CF value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[13] addr=D98401CE -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CE value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[14] addr=D98401CD -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CD value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[15] addr=D98401CC -> 00
+[QEMU40HD-RTCMMIO] R addr=D98401CC value=00000000 ret=00000000 type=10\n[QEMU40HN-RTC] data[16] addr=D98401D3 -> 20
+[QEMU40HD-RTCMMIO] R addr=D98401D3 value=00000000 ret=00000020 type=10\n[QEMU40HN-RTC] data[17] addr=D98401D2 -> 00
+[QEMU40HN-RTC] frame complete
+
+===== RTC / TIMECODE =====
+[QEMU40HD-RTCMMIO] W addr=D9840A08 value=00000000 ret=00000000 type=20\n[QEMU40HD-RTCMMIO] W addr=D20B0314 value=000C0003 ret=00000000 type=20\n[[1;36m      RTCMgr:fe1fbe17 [0m] (00:06) [RTC] RTC_REGISTER_TIME_CORRECT ERROR 0x0 -> 0x9e
+     7:    62.976 ERROR [RTC] RTC_REGISTER_TIME_CORRECT ERROR 0x0 -> 0x9e
+
+===== COUNTS =====
+RTC_CHECK_ERROR=0
+TIMECODE_1126=0
+HN_FRAME_COMPLETE=2
+
+===== STARTUP TAIL =====
+[[1;36m      SFRead:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x10000)
+[[1;36m      SFRead:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 0, 0x10000, Flag = 0x10000)
+[[1;36m     Startup:fe0e77c5 [0m] (00:05) [SEQ] seqEventDispatch (Startup, 0)
+[[1;36m     RomRead:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x20000000)
+[[1;36m     RomRead:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 1, 0x20020002, Flag = 0x20000000)
+[[1;36m    PowerMgr:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x2)
+[[1;36m    PowerMgr:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 1, 0x20002, Flag = 0x2)
+[[1;36m      RscMgr:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x20000)
+[[1;36m      RscMgr:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 1, 0x20000, Flag = 0x20000)
+[[1;36m     Startup:fe0e77c5 [0m] (00:05) [SEQ] seqEventDispatch (Startup, 1)
+[[1;36m     FileMgr:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x8)
+[[1;36m     FileMgr:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 2, 0x400008, Flag = 0x8)
+[[1;36m     FileMgr:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x400000)
+[[1;36m     FileMgr:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 2, 0x400000, Flag = 0x400000)
+[[1;36m     Startup:fe0e77c5 [0m] (00:05) [SEQ] seqEventDispatch (Startup, 2)
+[[1;36m     Startup:fe0df1f1 [0m] (8b:05) PrepareCapture
+[[1;36mShootCapture:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x40000)
+[[1;36mShootCapture:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 3, 0xc0000, Flag = 0x40000)
+[[1;36m     Startup:fe0e7921 [0m] (00:02) [SEQ] NotifyComplete (Startup, Flag = 0x80000)
+[[1;36m     Startup:fe0e7959 [0m] (00:03) [SEQ] NotifyComplete (Cur = 3, 0x80000, Flag = 0x80000)
+[[1;36m     Startup:fe0e77c5 [0m] (00:05) [SEQ] seqEventDispatch (Startup, 3)
