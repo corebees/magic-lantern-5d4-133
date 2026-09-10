@@ -27,7 +27,11 @@ This record summarizes the QEMU04–QEMU40EN investigation without publishing Ca
 | QEMU40EN | Added narrow ResManagPostS TX0/RX1 reply model using IRQs `0x0D` and `0x1C` | Source-preservation checkpoint; not hardware validation |
 | Post-QEMU40EN | Progressed through ResManagPostS continuation, TX4/RX5 dispatch, startup stage 3, PCommMem ownership, RTC/TimeCodeMaster, Omar event 10, APROC, D200/Postman TX2, Zico/MZRM, and LvGain | Emulator/reverse-engineering results only |
 | QEMU40NR | Canon startup reaches `GUI_Initialize`, `GuiMainTask`, `GuiInitializeGraphics`, and `Pana_Init` | Panasonic RESET_COMPLETE remains blocked |
-| Panasonic CH2 | Command `0x3C` decoded as `READ 0x70:0x02 len=2`; Canon compares requested length with `D6050010[31:24]` | Current model reports one byte and cannot complete this two-byte transfer |
+| Panasonic CH2 | Command `0x3C` decoded as `READ 0x70:0x02 len=2`; Canon compares requested length with `D6050010[31:24]` | QEMU40NR one-byte model was insufficient |
+| QEMU40OV | Dynamic multi-byte CH2 RX accounting passes the two-byte transport frontier while preserving one-byte reads | Payload remains synthetic; not a final device model |
+| QEMU40OX-A | `reg08` bit 3 is mapped to the Panasonic/display hotplug prerequisite and provides a runtime witness | Does not complete `Pana_Init` |
+| QEMU40OZ-B / PAA-R3 | One-shot `0x03` and a 64-read synthetic burst were both insufficient | Simple repetition is not the missing semantic |
+| EDID preread frontier | Payload `0x03` leads to write `0x98 = 0x81`; execution advances from `wait143` to `line151` | Exact Panasonic/EDID response semantics remain unknown |
 
 ## Strong findings
 
@@ -41,6 +45,9 @@ This record summarizes the QEMU04–QEMU40EN investigation without publishing Ca
 - Panasonic command `0x3C` requests two bytes from `0x70:0x02`.
 - The Canon CH2 receive path treats `D6050010[31:24]` as the actual byte count and rejects a count that differs from the requested length.
 - QEMU40NR reports `0x01000000`, so its one-byte receive model is deterministically incompatible with command `0x3C`.
+- QEMU40OV implements and runtime-validates multi-byte receive accounting sufficiently to pass the two-byte CH2 transport blocker without globally forcing all reads to length 2.
+- The next causal dependency is the Panasonic hotplug/EDID preread path: `reg08` bit 3 is a runtime witness, and payload `0x03` causes `0x98 = 0x81`.
+- Neither one `0x03` response nor a synthetic 64-read burst completes initialization; the current execution frontier is `wait143 -> line151`.
 
 ## Corrections and rejected hypotheses
 
@@ -60,17 +67,20 @@ Raw run/GDB/verification transcripts remain private because they include ROM nam
 
 ## Current frontier and next tests
 
-The current causal frontier is Panasonic `Pana_Init`. Its first RESET_COMPLETE phase does not complete because the CH2 model supports only one received byte per transaction, while command `0x3C` requests two.
+QEMU40OV passes the CH2 multi-byte receive-count blocker. The current causal frontier has moved into the Panasonic hotplug/EDID preread sequence.
 
-Next:
+Confirmed progression:
 
-1. Recover the requested RX length dynamically from CH2 controller transaction state.
-2. Preserve already-working one-byte transactions; do not globally hardcode RX count 2.
-3. Model an RX FIFO/count lifecycle that decrements per `RXDATA` read and arms STOP only after the final byte.
-4. Run the designed QEMU40OU-R2 instrumentation before treating it as evidence.
-5. Validate Panasonic payload semantics separately after the transport count is correct.
+1. `reg08` bit 3 maps to the hotplug prerequisite.
+2. QEMU40OX-A provides the corresponding runtime witness.
+3. Synthetic payload `0x03` leads to `0x98 = 0x81`.
+4. Execution advances from `wait143` to `line151`.
+5. QEMU40OZ-B proves that a one-shot `0x03` response is insufficient.
+6. QEMU40PAA-R3 proves that merely extending the same synthetic response to 64 reads is also insufficient.
 
-QEMU40OU was read-only source auditing. QEMU40OU-R2 is designed but not executed and is not a successful result.
+Next, recover the real response/state progression expected by the EDID preread path. Preserve QEMU40OV multi-byte accounting and already-working one-byte reads. Do not treat synthetic `0x08` or `0x03` as known Panasonic semantics.
+
+QEMU40PAA and older probes remain temporary experimental instrumentation, not a final qemu-eos implementation.
 
 ## QEMU40 source checkpoint
 

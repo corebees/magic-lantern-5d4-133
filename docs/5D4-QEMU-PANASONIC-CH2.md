@@ -73,8 +73,30 @@ QEMU40OU confirmed read-only that QEMU40NR retains isolated hooks for transfer a
 
 Panasonic payload values remain unmodelled and current reads return synthetic zero bytes. Even after fixing the receive count, payload semantics and RESET_COMPLETE progression require separate validation.
 
+## QEMU40OV result
+
+QEMU40OV runtime-validates dynamic multi-byte CH2 RX accounting. The two-byte command `0x3C` now passes its transport-count check while earlier one-byte reads remain supported. This closes the one-byte-only transport blocker, but it does not establish real Panasonic payload semantics and does not complete `Pana_Init`.
+
+## Hotplug and EDID preread frontier
+
+Subsequent experiments narrow the next dependency:
+
+- the Panasonic/display hotplug prerequisite maps to `reg08` bit 3;
+- QEMU40OX-A records the corresponding runtime witness;
+- synthetic payload `0x03` causes the observed write `0x98 = 0x81`;
+- the exact execution frontier advances from `wait143` to `line151`.
+
+Negative results are equally important:
+
+- QEMU40OZ-B: a one-shot `0x03` response is insufficient;
+- QEMU40PAA-R3: a 64-read burst of the synthetic response is still insufficient.
+
+Therefore the blocker is not solved by simply repeating `0x03`. Both `0x08` and `0x03` remain diagnostic synthetic payloads; their real Panasonic meaning is unknown.
+
 ## Next step
 
-Implement and runtime-test dynamic multi-byte CH2 RX accounting while preserving one-byte reads. Publish a qemu-eos source patch only after the new model is clean, isolated, and reproducibly QEMU-validated against upstream `reticulatedpines/qemu-eos` branch `qemu-eos-v4.2.1`, commit `4b667a1d3c08ab7a55835d15ddbd884fa754946d`.
+Recover the stateful Panasonic/EDID response sequence required beyond `line151`, while preserving the QEMU40OV multi-byte transport behavior. QEMU40PAA and earlier probes must be reduced before any source patch is presented as a clean emulator implementation.
+
+Publish a qemu-eos source patch only after the model is isolated and reproducibly QEMU-validated against upstream `reticulatedpines/qemu-eos` branch `qemu-eos-v4.2.1`, commit `4b667a1d3c08ab7a55835d15ddbd884fa754946d`.
 
 No physical-camera claim, tag, release, or main-branch merge follows from this finding.
