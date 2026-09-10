@@ -1,6 +1,6 @@
 # 5D4.133 QEMU research
 
-Updated: 2026-09-07
+Updated: 2026-09-10
 
 Status: `RESEARCH / QEMU VERIFIED IN PART / NOT HARDWARE VALIDATION`
 
@@ -24,7 +24,10 @@ This record summarizes the QEMU04–QEMU40EN investigation without publishing Ca
 | QEMU38ZZQ | Experimental `D20F0110=3 -> IRQ 0x9C` MOCom/Omar completion model added | Requires validation; intentionally incomplete |
 | QEMU40DK | Added 5D4 D200 pending/ack diagnostic around `D2000208`, `D2000400`, and IRQ `0x8D` | No preserved test report; unverified |
 | QEMU40EA | Added recovered 5D4 JpCore ranges at `D0100000`, `D0110000`, and `D0120000` | No preserved test report; unverified |
-| QEMU40EN | Added narrow ResManagPostS TX0/RX1 reply model using IRQs `0x0D` and `0x1C` | No preserved test report; unverified |
+| QEMU40EN | Added narrow ResManagPostS TX0/RX1 reply model using IRQs `0x0D` and `0x1C` | Source-preservation checkpoint; not hardware validation |
+| Post-QEMU40EN | Progressed through ResManagPostS continuation, TX4/RX5 dispatch, startup stage 3, PCommMem ownership, RTC/TimeCodeMaster, Omar event 10, APROC, D200/Postman TX2, Zico/MZRM, and LvGain | Emulator/reverse-engineering results only |
+| QEMU40NR | Canon startup reaches `GUI_Initialize`, `GuiMainTask`, `GuiInitializeGraphics`, and `Pana_Init` | Panasonic RESET_COMPLETE remains blocked |
+| Panasonic CH2 | Command `0x3C` decoded as `READ 0x70:0x02 len=2`; Canon compares requested length with `D6050010[31:24]` | Current model reports one byte and cannot complete this two-byte transfer |
 
 ## Strong findings
 
@@ -34,6 +37,10 @@ This record summarizes the QEMU04–QEMU40EN investigation without publishing Ca
 - The first H3 blocker is a non-returning semaphore wait in `FE0E236A`.
 - Firmware uses MEMDIV from `0xD9000A20`, outside the old qemu-eos range. Adding the range and offset `0x0A24` clears the MEMDIV/SHM blocker causally.
 - `FE34D2A6` is not a blocker after MEMDIV correction.
+- Canon startup now reaches Panasonic/display initialization in QEMU.
+- Panasonic command `0x3C` requests two bytes from `0x70:0x02`.
+- The Canon CH2 receive path treats `D6050010[31:24]` as the actual byte count and rejects a count that differs from the requested length.
+- QEMU40NR reports `0x01000000`, so its one-byte receive model is deterministically incompatible with command `0x3C`.
 
 ## Corrections and rejected hypotheses
 
@@ -51,12 +58,19 @@ The committed qemu-eos patches reproduce source changes only. They are complete 
 
 Raw run/GDB/verification transcripts remain private because they include ROM names/hashes, personal paths, large debug output, and ROM-derived disassembly. They informed this summary but are not committed verbatim.
 
-## Next tests
+## Current frontier and next tests
 
-1. Validate or reject QEMU38ZZQ in a clean process.
-2. Replace runtime `PROP_VIDEO_MODE` differential with a proper 5D4 MPU spell/model.
-3. Remove Omar wait intervention and confirm native semaphore completion.
-4. Continue through GUI/XIMR initialization and capture a nonblank display.
+The current causal frontier is Panasonic `Pana_Init`. Its first RESET_COMPLETE phase does not complete because the CH2 model supports only one received byte per transaction, while command `0x3C` requests two.
+
+Next:
+
+1. Recover the requested RX length dynamically from CH2 controller transaction state.
+2. Preserve already-working one-byte transactions; do not globally hardcode RX count 2.
+3. Model an RX FIFO/count lifecycle that decrements per `RXDATA` read and arms STOP only after the final byte.
+4. Run the designed QEMU40OU-R2 instrumentation before treating it as evidence.
+5. Validate Panasonic payload semantics separately after the transport count is correct.
+
+QEMU40OU was read-only source auditing. QEMU40OU-R2 is designed but not executed and is not a successful result.
 
 ## QEMU40 source checkpoint
 
