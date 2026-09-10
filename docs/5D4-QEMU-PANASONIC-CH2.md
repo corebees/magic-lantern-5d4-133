@@ -93,9 +93,32 @@ Negative results are equally important:
 
 Therefore the blocker is not solved by simply repeating `0x03`. Both `0x08` and `0x03` remain diagnostic synthetic payloads; their real Panasonic meaning is unknown.
 
-## Next step
+## PAD-AB through PAD-AD: natural EDID acquisition
 
-Recover the stateful Panasonic/EDID response sequence required beyond `line151`, while preserving the QEMU40OV multi-byte transport behavior. QEMU40PAA and earlier probes must be reduced before any source patch is presented as a clean emulator implementation.
+Bounded reverse engineering identifies the complete Canon EDID acquisition path:
+
+- `FE21154A` creates a 128-byte EDID descriptor for slave `0x7C`, using the destination registered through B6EC at `0x32360`;
+- `FE1FD790` splits it into `0x00 -> 0x32360` and `0x40 -> 0x323A0`, each 64 bytes.
+
+PAD-AB confirms that the existing CH2 model completes both reads while returning zero. PAD-AC injects a minimal checksum-valid EDID into RAM only as a causal witness; Canon then reports checksum pass, sink status 3, `Get EDID Success`, and `Pana_Init End : EDID = 3`.
+
+PAD-AD delivers that same synthetic witness through the natural CH2 slave-`0x7C` receive stream. No GDB RAM injection, checksum bypass, or Canon state-machine manipulation is used. Both 64-byte reads complete naturally and Canon reaches the same success path, then progresses through Movie/VRAM/HDR, TouchPanel, and GUI initialization.
+
+The payload is intentionally minimal and synthetic: header bytes, EDID version/revision, zero extensions, and a valid checksum. It is not evidence of a real connected monitor.
+
+Experimental source provenance:
+
+- baseline `hw/eos/eos.c`: `809da93ab66fa1bfde796950126b839627e9b95b7f90e4d54135da5dd4fa166e`;
+- PAD-AD result: `31f5aa4220c415a8df3c6eddcfd119a17b27815964037f5cf6770a6d3c4e3a1d`;
+- original workcard patch: `25037ffa8b55c292c4753dea230ebb805e71bda64b2089cb9dd3eb4e8ae0fe19`.
+
+The exact validated patch retains PAD-AD byte logging. Remove or gate it only in a separately built and runtime-tested cleanup checkpoint.
+
+## Current blockers and next step
+
+`Pana_Init` completes under the synthetic witness, but global startup does not. TouchPanel initialization reports semaphore error code 9 followed by boot/wakeup failure, and FMID/FaceTrack continues to report Omar no-response `0x9`. The synthetic `reg08=0x08` and `reg90=0x13` witnesses also remain part of the experimental Panasonic model.
+
+Audit the TouchPanel completion path while keeping PAD-AD as the reproducible EDID checkpoint. QEMU40PAA and earlier probes must be reduced before any source is presented as a clean emulator implementation.
 
 Publish a qemu-eos source patch only after the model is isolated and reproducibly QEMU-validated against upstream `reticulatedpines/qemu-eos` branch `qemu-eos-v4.2.1`, commit `4b667a1d3c08ab7a55835d15ddbd884fa754946d`.
 

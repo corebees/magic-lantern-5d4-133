@@ -32,6 +32,9 @@ This record summarizes the QEMU04–QEMU40EN investigation without publishing Ca
 | QEMU40OX-A | `reg08` bit 3 is mapped to the Panasonic/display hotplug prerequisite and provides a runtime witness | Does not complete `Pana_Init` |
 | QEMU40OZ-B / PAA-R3 | One-shot `0x03` and a 64-read synthetic burst were both insufficient | Simple repetition is not the missing semantic |
 | EDID preread frontier | Payload `0x03` leads to write `0x98 = 0x81`; execution advances from `wait143` to `line151` | Exact Panasonic/EDID response semantics remain unknown |
+| PAD-AB | Canon naturally issues two CH2 reads from slave `0x7C`: offsets `0x00` and `0x40`, 64 bytes each | Existing model returns zero bytes |
+| PAD-AC | RAM-only checksum-valid synthetic EDID causes checksum pass, sink status 3, and `Pana_Init End : EDID = 3` | Causal witness only; not a transport model |
+| PAD-AD | Same synthetic EDID delivered through Canon's natural CH2 slave-`0x7C` receive path; both 64-byte reads complete and Canon reports EDID success | Experimental payload and verbose diagnostics remain |
 
 ## Strong findings
 
@@ -81,6 +84,16 @@ Confirmed progression:
 Next, recover the real response/state progression expected by the EDID preread path. Preserve QEMU40OV multi-byte accounting and already-working one-byte reads. Do not treat synthetic `0x08` or `0x03` as known Panasonic semantics.
 
 QEMU40PAA and older probes remain temporary experimental instrumentation, not a final qemu-eos implementation.
+
+## PAD-AD synthetic EDID checkpoint
+
+Bounded reverse engineering identifies `FE21154A` as the 128-byte EDID descriptor creator, using the destination registered through B6EC (`0x32360`) and slave `0x7C`. `FE1FD790` splits the acquisition into two natural reads: offset `0x00`, length 64, destination `0x32360`; then offset `0x40`, length 64, destination `0x323A0`.
+
+PAD-AD moves the checksum-valid PAD-AC witness from GDB RAM injection into the natural CH2 receive path. Canon itself receives both blocks and reaches `Get EDID Success` and `Pana_Init End : EDID = 3`, then advances through Movie/VRAM/HDR, TouchPanel, and GUI initialization.
+
+The published incremental source patch transforms experimental `hw/eos/eos.c` SHA-256 `809da93ab66fa1bfde796950126b839627e9b95b7f90e4d54135da5dd4fa166e` into `31f5aa4220c415a8df3c6eddcfd119a17b27815964037f5cf6770a6d3c4e3a1d`. It retains PAD-AD byte logging for exact reproducibility and is not an upstream-ready patch.
+
+Current later blockers include TouchPanel semaphore error 9/boot-wakeup failure and recurring Omar no-response reports. Global startup completion remains unproven.
 
 ## QEMU40 source checkpoint
 

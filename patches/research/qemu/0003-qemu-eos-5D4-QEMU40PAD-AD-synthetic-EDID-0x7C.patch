@@ -1,0 +1,195 @@
+QEMU40PAD-AD — synthetic 5D4 EDID through natural CH2 slave 0x7C
+========================================================================
+
+Classification: RESEARCH UPDATE / QEMU-VERIFIED EXPERIMENT
+Target firmware: Canon EOS 5D Mark IV 1.3.3
+Physical-camera validation: none
+
+Experimental baseline hw/eos/eos.c SHA-256:
+809da93ab66fa1bfde796950126b839627e9b95b7f90e4d54135da5dd4fa166e
+
+Result hw/eos/eos.c SHA-256:
+31f5aa4220c415a8df3c6eddcfd119a17b27815964037f5cf6770a6d3c4e3a1d
+
+Original workcard patch SHA-256:
+25037ffa8b55c292c4753dea230ebb805e71bda64b2089cb9dd3eb4e8ae0fe19
+
+This incremental patch depends on the accumulated PAD-U/PAD-AD experimental
+baseline; it is not directly applicable to upstream qemu-eos 4b667a1d.
+
+The EDID is a deliberately minimal checksum-valid synthetic witness. It does
+not model a real connected monitor. Verbose PAD-AD logging is retained because
+it was present in the runtime-validated source; cleanup requires a separate
+build/runtime checkpoint.
+
+--- a/hw/eos/eos.c
++++ b/hw/eos/eos.c
+@@ -2509,6 +2509,32 @@
+     static unsigned int q40ou_aux_last = 0;
+ 
+     /*
++     * QEMU40PAD-AD:
++     *
++     * Causal EDID payload witness using the natural CH2
++     * receive path.
++     *
++     * PAD-AB proved Canon naturally performs:
++     *
++     *   slave 0x7C, offset 0x00, 64 bytes
++     *   slave 0x7C, offset 0x40, 64 bytes
++     *
++     * and the generic QEMU40OV controller completes both
++     * reads while returning zero for every byte.
++     *
++     * Capture the first DATA byte of the RX descriptor so a
++     * long read can still be identified after the rolling
++     * q40ou_data0..3 window has discarded the slave address.
++     *
++     * This remains a synthetic diagnostic EDID, NOT a model
++     * of a real display or Panasonic device.
++     */
++    static unsigned int q40ad_first_data = 0;
++    static unsigned int q40ad_active_edid = 0;
++    static unsigned int q40ad_edid_read_arms = 0;
++    static unsigned int q40ad_edid_bytes = 0;
++
++    /*
+      * QEMU40OV — generic CH2 multi-byte RX state.
+      *
+      * QEMU40OU-R2 proved that Canon programs one 0x10 DATA
+@@ -2949,6 +2975,13 @@
+             q40ou_data2 = 0;
+             q40ou_data3 = 0;
+ 
++            /*
++             * QEMU40PAD-AD:
++             * new controller address phase.
++             */
++            q40ad_first_data = 0;
++            q40ad_active_edid = 0;
++
+             q40ou_aux_writes = 0;
+             q40ou_aux_last = 0;
+         }
+@@ -2956,6 +2989,14 @@
+         if ((type & MODE_WRITE) &&
+             address == 0xD6050004U)
+         {
++            /*
++             * QEMU40PAD-AD:
++             * save DATA #0 before the four-word rolling window
++             * discards it on long receive descriptors.
++             */
++            if (q40ou_data_writes == 0U)
++                q40ad_first_data = value & 0xFFU;
++
+             q40ou_data3 = q40ou_data2;
+             q40ou_data2 = q40ou_data1;
+             q40ou_data1 = q40ou_data0;
+@@ -2979,6 +3020,39 @@
+             q40oz_active_reg = q40oz_prev_reg;
+ 
+             /*
++             * QEMU40PAD-AD:
++             * natural EDID read fingerprint.
++             *
++             * PAD-AB:
++             *   slave       = 0x7C
++             *   chunk       = 64
++             *
++             * CH2 descriptor:
++             *   first DATA  = 0x7D (read address)
++             *   DATA #1..64 = receive slots
++             */
++            q40ad_active_edid =
++                (q40ou_data_writes == 65U &&
++                 (q40ad_first_data & 0xFFU) == 0x7DU &&
++                 (q40ou_data0 & 0xFFU) == 0x10U);
++
++            if (q40ad_active_edid)
++            {
++                q40ad_edid_read_arms++;
++
++                fprintf(stderr,
++                        "[QEMU40PAD-AD] EDID READ ARM #%u "
++                        "slave=7C "
++                        "offset=%02X "
++                        "slots=%u "
++                        "first=%02X\n",
++                        q40ad_edid_read_arms,
++                        q40oz_active_reg & 0xFFU,
++                        q40ou_data_writes - 1U,
++                        q40ad_first_data & 0xFFU);
++            }
++
++            /*
+              * For a one-byte Panasonic receive OU-R2 proved:
+              *
+              *     data_writes = 2
+@@ -3139,6 +3213,66 @@
+              */
+             unsigned int q40ox_rx_value = 0x00000000U;
+ 
++            /*
++             * QEMU40PAD-AD — synthetic base EDID.
++             *
++             * Same causal witness that PAD-AC proved via GDB,
++             * now delivered only through Canon's natural I2C
++             * receive stream.
++             *
++             * Contents intentionally minimal:
++             *
++             *   00 FF FF FF FF FF FF 00   EDID header
++             *   byte 18 = 01               version
++             *   byte 19 = 03               revision
++             *   byte126 = 00               no extensions
++             *   byte127 = 02               checksum
++             *
++             * Raw sum = 1536; modulo 256 = 0.
++             */
++            if (q40ad_active_edid &&
++                q40ov_rx_total == 64U &&
++                q40ov_rx_remaining > 0U)
++            {
++                unsigned int q40ad_pos =
++                    q40ov_rx_total - q40ov_rx_remaining;
++
++                unsigned int q40ad_off =
++                    (q40oz_active_reg & 0xFFU) + q40ad_pos;
++
++                unsigned int q40ad_value = 0U;
++
++                if (q40ad_off >= 1U && q40ad_off <= 6U)
++                    q40ad_value = 0xFFU;
++                else if (q40ad_off == 18U)
++                    q40ad_value = 0x01U;
++                else if (q40ad_off == 19U)
++                    q40ad_value = 0x03U;
++                else if (q40ad_off == 127U)
++                    q40ad_value = 0x02U;
++
++                if (q40ad_off < 128U)
++                {
++                    q40ox_rx_value = q40ad_value;
++                    q40ad_edid_bytes++;
++
++                    if (q40ad_off < 8U ||
++                        q40ad_off == 18U ||
++                        q40ad_off == 19U ||
++                        q40ad_off >= 124U)
++                    {
++                        fprintf(stderr,
++                                "[QEMU40PAD-AD] EDID BYTE "
++                                "off=%02X value=%02X "
++                                "rx=%u/%u\n",
++                                q40ad_off,
++                                q40ad_value,
++                                q40ov_rx_remaining,
++                                q40ov_rx_total);
++                    }
++                }
++            }
++
+             if (q40ou_read_arms == 10U &&
+                 q40ov_rx_total == 1U &&
+                 q40ov_rx_remaining == 1U)
