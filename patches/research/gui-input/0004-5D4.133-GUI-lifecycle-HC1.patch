@@ -1,0 +1,1243 @@
+5D4 GUI Lifecycle — Hardware Checkpoint 1
+==========================================
+
+Classification: HARDWARE CHECKPOINT
+Target: Canon EOS 5D Mark IV, firmware 1.3.3
+Hardware: physical camera
+
+Baseline src/menu.c SHA-256:
+6408dad4d4312d8b97a2a19f2b5821774aaa795fc8346a80bbd27e8d059e9fc4
+
+Result src/menu.c SHA-256:
+380e101dc58df773755b7dc5991f1ab43e7baab486675c5b14260676029c619a
+
+This patch preserves the exact C4-v2 source delta validated on hardware.
+TESTLV/TESTGM identifiers and diagnostic instrumentation remain present;
+removing them would create an untested derivative. Cleanup must be built
+and hardware-regression-tested as a separate follow-up checkpoint.
+
+Validated scope includes Electronic Level, normal shooting, INFO Quick
+Control and LiveView menu lifecycle, input ownership and clean restoration.
+Known half-shutter, display-off and auto-off/wake limitations are documented
+in docs/5D4_PORT_STATUS.md.
+
+--- a/src/menu.c
++++ b/src/menu.c
+@@ -149,6 +149,52 @@
+ 
+ 
+ /*
++ * TESTNS16E-RC4 — hidden Q-host exit race guard.
++ *
++ * Physical root DELETE arms this synchronously before
++ * menu_task starts menu_close().
++ *
++ * Once armed, same-state SetGUIRequestMode(0x29)
++ * keepalive is forbidden.
++ */
++static volatile int
++    testlv15d_q_host_exit_armed_5d4 = 0;
++
++
++
++/*
++ * TESTNS16B — normal-shooting copycat Q-host state.
++ *
++ * Canon shooting GUI is frozen on dedicated layer1 before Q.
++ * Canon layer0 is then hidden and Q is used only as an invisible
++ * input-ownership host underneath ML.
++ */
++static volatile int
++    testns16b_shoot_q_host_pending_5d4 = 0;
++
++static volatile unsigned int
++    testns16b_shoot_q_host_poll_count_5d4 = 0;
++
++static volatile int
++    testns16b_shoot_copycat_active_5d4 = 0;
++
++
++/*
++ * TESTGM18A — naked Canon LiveView host probe.
++ *
++ * 0 = normal ML behaviour
++ * 1 = Canon GUI mode 0x4A probe active
++ *
++ * During this test:
++ *   no ML menu
++ *   no layer1 curtain
++ *   no XIMR manipulation
++ *   no Q host
++ */
++static volatile int
++    testgm18a_lv_host_probe_active_5d4 = 0;
++
++/*
+  * TESTLV15C — hidden Q#2 LiveView exit.
+  *
+  * stage 0 = idle
+@@ -161,6 +207,18 @@
+ static volatile unsigned int
+ testlv15c_lv_q_exit_poll_count_5d4 = 0;
+ 
++
++/*
++ * TESTNS16F-B — consecutive post-Q2 non-Q samples.
++ *
++ * Q exit is accepted only after CURRENT_GUI_MODE has remained
++ * != 0x29 for 150 ms continuously.
++ *
++ * Callback remains state-only: no XIMR operations here.
++ */
++static volatile unsigned int
++testlv15c_lv_q_exit_stable_count_5d4 = 0;
++
+ static int
+ testlv6_publish_menu_layer1_5d4(void);
+ 
+@@ -3465,70 +3523,11 @@
+ 
+ #ifdef CONFIG_5D4
+     /*
+-     * TESTLV14C — callback-time GUI-mode buckets.
++     * NS16D2-CLEAN1:
++     *
++     * Old TESTLV14C/D on-screen telemetry removed.
++     * Show GUI Events is now the only active input diagnostic.
+      */
+-    if (
+-        testlv14c_m0_5d4.n ||
+-        testlv14c_m29_5d4.n ||
+-        testlv14c_m2_5d4.n ||
+-        testlv14c_mother_5d4.n ||
+-        testlv14a_installed_5d4
+-    )
+-    {
+-        bmp_printf(
+-            FONT_SMALL,
+-            5,
+-            386,
+-            "LV14D g13:%x | LV14C I:%x L:%x ph:%x",
+-            testlv14d_first13_gui_state_5d4,
+-            testlv14a_installed_5d4,
+-            testlv14a_lost_5d4,
+-            testlv14b_phase_5d4
+-        );
+-
+-        bmp_printf(
+-            FONT_SMALL,
+-            5,
+-            402,
+-            "m0  n:%x 13:%x 38:%x",
+-            testlv14c_m0_5d4.n,
+-            testlv14c_m0_5d4.sel13,
+-            testlv14c_m0_5d4.sel38
+-        );
+-
+-        bmp_printf(
+-            FONT_SMALL,
+-            5,
+-            418,
+-            "m29 n:%x 13:%x 38:%x",
+-            testlv14c_m29_5d4.n,
+-            testlv14c_m29_5d4.sel13,
+-            testlv14c_m29_5d4.sel38
+-        );
+-
+-        bmp_printf(
+-            FONT_SMALL,
+-            5,
+-            434,
+-            "m2  n:%x 13:%x 38:%x",
+-            testlv14c_m2_5d4.n,
+-            testlv14c_m2_5d4.sel13,
+-            testlv14c_m2_5d4.sel38
+-        );
+-
+-        bmp_printf(
+-            FONT_SMALL,
+-            5,
+-            450,
+-            "oth n:%x 13:%x 38:%x first13 m:%x ph:%x v:%08x",
+-            testlv14c_mother_5d4.n,
+-            testlv14c_mother_5d4.sel13,
+-            testlv14c_mother_5d4.sel38,
+-            testlv14c_first13_mode_5d4,
+-            testlv14c_first13_phase_5d4,
+-            testlv14c_first13_value_5d4
+-        );
+-    }
+ #endif
+ 
+     if (!CURRENT_GUI_MODE)
+@@ -5422,10 +5421,124 @@
+      */
+     if (
+         testlv6_lv_menu_no_host_5d4 &&
+-        gui_menu_shown()
++        (
++            gui_menu_shown() ||
++            lv_5d4
++        )
+     )
+     {
+         /*
++         * TESTGM17C-A:
++         *
++         * Normal shooting is backed by Canon PLAY, not Q.
++         * No keepalive is required or permitted here.
++         *
++         * If PLAY ownership disappears unexpectedly, fail the
++         * normal ML lifecycle rather than leaving shooting wheels
++         * active beneath ML.
++         */
++        if (
++            !lv_5d4 &&
++            testns16b_shoot_copycat_active_5d4
++        )
++        {
++            return
++                (CURRENT_GUI_MODE == GUIMODE_PLAY)
++                    ? 1
++                    : 0;
++        }
++
++        /*
++         * TESTGM18B-A:
++         *
++         * LiveView now uses persistent Canon GUI host 0x4A.
++         * HW GM18A4 proved:
++         *
++         *   - moving LiveView continues
++         *   - no visible Canon dialog
++         *   - Tv/Av remain isolated
++         *   - no timeout beyond 30 s
++         *
++         * Therefore no keepalive is required.
++         *
++         * Safety invariant:
++         * if ownership unexpectedly leaves 0x4A while ML is
++         * visible, fail menu validation rather than exposing
++         * active shooting wheels underneath ML.
++         */
++        if (lv_5d4)
++        {
++            /*
++             * TESTGM18F-C1:
++             *
++             * HW proof:
++             *
++             *   naked 0x4A natural lifetime:
++             *       5 s  -> owned
++             *       7 s  -> expired
++             *
++             *   one same-state refresh at +4 s:
++             *       7 s  -> owned
++             *       9 s  -> owned
++             *       11 s -> expired
++             *
++             *   periodic same-state refresh every ~2 s:
++             *       ownership retained >60 s
++             *
++             * Therefore 0x4A is a renewable Canon/MPU lease.
++             */
++
++            /*
++             * Safety invariant:
++             * never leave ML visible if Canon has already
++             * relinquished wheel ownership.
++             */
++            if (CURRENT_GUI_MODE != 0x4A)
++            {
++                /*
++                 * Safety invariant:
++                 * Canon lost 0x4A wheel ownership.
++                 */
++                return 0;
++            }
++
++            /*
++             * Root DELETE has synchronously armed teardown.
++             *
++             * Keep validation successful during close, but
++             * absolutely forbid another same-state renewal.
++             */
++            if (testlv15d_q_host_exit_armed_5d4)
++                return 1;
++
++            unsigned int now =
++                (unsigned int)get_ms_clock();
++
++            unsigned int age =
++                now - testlv15d_q_host_last_refresh_ms_5d4;
++
++            if (
++                testlv15d_q_host_last_refresh_ms_5d4 == 0 ||
++                age >= 2000
++            )
++            {
++                /*
++                 * Final race check immediately before the
++                 * Canon/MPU request.
++                 */
++                if (testlv15d_q_host_exit_armed_5d4)
++                    return 1;
++
++                SetGUIRequestMode(0x4A);
++
++                testlv15d_q_host_last_refresh_ms_5d4 =
++                    now;
++            }
++
++            return 1;
++        }
++
++        /*
+          * TESTLV15D-B — periodic Q-host keepalive.
+          *
+          * TESTLV15D-A HW proof:
+@@ -5453,6 +5566,16 @@
+         if (CURRENT_GUI_MODE != 0x29)
+             return 0;
+ 
++        /*
++         * TESTNS16E-RC4:
++         * root DELETE already requested host teardown.
++         *
++         * Keep this menu validation successful during the
++         * close handoff, but do not renew Canon Q.
++         */
++        if (testlv15d_q_host_exit_armed_5d4)
++            return 1;
++
+         unsigned int now =
+             (unsigned int) get_ms_clock();
+ 
+@@ -5471,6 +5594,13 @@
+              * No PLAY.
+              * No XIMR operation.
+              */
++            /*
++             * TESTNS16E-RC4:
++             * final check immediately before the MPU request.
++             */
++            if (testlv15d_q_host_exit_armed_5d4)
++                return 1;
++
+             SetGUIRequestMode(0x29);
+ 
+             testlv15d_q_host_last_refresh_ms_5d4 =
+@@ -6300,8 +6430,25 @@
+      *
+      * Restrict completely to TESTLV6 LiveView no-host menu.
+      */
++    /*
++     * TESTNS16C:
++     *
++     * TESTNS16B HW proved that hidden Q successfully removes
++     * MAIN/REAR ownership from Canon shooting, but ordinary
++     * logical wheel events do not reach ML in this host.
++     *
++     * TESTGM17C-A:
++     *
++     * Normal shooting now uses Canon PLAY and must receive the
++     * native logical ML wheel stream directly.
++     *
++     * Therefore the DIGIC 6 0x61 decoder is retained ONLY for
++     * the LiveView Q-host.
++     */
+     if (
++        lv_5d4 &&
+         testlv6_lv_menu_no_host_5d4 &&
++        CURRENT_GUI_MODE == 0x29 &&
+         event->param == 0x61 &&
+         (
+             event->arg == 0x0A ||
+@@ -7774,14 +7921,22 @@
+     }
+ 
+     /*
+-     * Native Canon Quick Control committed.
++     * TESTGM18B-A:
++     * renewable Canon LiveView host 0x4A committed.
+      *
+-     * Stop here.
++     * Stop here and hand control to the existing dedicated
++     * layer1 ML lifecycle.
+      *
+-     * Do NOT request PLAY.
++     * No Q, no PLAY and no keepalive.
+      */
+-    if (CURRENT_GUI_MODE == 0x29)
++    if (CURRENT_GUI_MODE == 0x4A)
+     {
++        /*
++         * TESTNS16E-RC4:
++         * fresh LV hidden-Q transaction.
++         */
++        testlv15d_q_host_exit_armed_5d4 = 0;
++
+         testlv15b_lv_q_host_pending_5d4 = 0;
+         testlv15b_lv_q_host_poll_count_5d4 = 0;
+ 
+@@ -7794,8 +7949,12 @@
+          * start periodic Q-host keepalive timing from the
+          * actual Canon Q commit.
+          */
++        /*
++         * TESTGM18F-C1:
++         * start renewable 0x4A lease timing from actual commit.
++         */
+         testlv15d_q_host_last_refresh_ms_5d4 =
+-            (unsigned int) get_ms_clock();
++            (unsigned int)get_ms_clock();
+ 
+         /*
+          * Reuse the already HW-proven TESTLV6 rendering and
+@@ -7808,14 +7967,17 @@
+         testlv6_lv_menu_no_host_5d4 = 1;
+ 
+         /*
+-         * Existing TESTLV4 recovery if menu_open itself fails.
++         * TESTGM18B-D:
++         *
++         * Retire the legacy +5000 ms TESTLV4 cleanup after a
++         * SUCCESSFUL 0x4A host commit.
++         *
++         * GM18B-A/B/C all lost ML at ~6 s, matching this timer.
++         *
++         * Entry/commit failure handling remains intact elsewhere.
++         * No delayed callback is required once 0x4A has committed
++         * and menu_open() is explicitly requested below.
+          */
+-        delayed_call(
+-            5000,
+-            testlv4_lv_cleanup_request_cbr,
+-            0
+-        );
+-
+         give_semaphore(gui_sem);
+         return;
+     }
+@@ -7874,6 +8036,7 @@
+     {
+         testlv15c_lv_q_exit_stage_5d4 = 0;
+         testlv15c_lv_q_exit_poll_count_5d4 = 0;
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
+         return;
+     }
+ 
+@@ -7881,10 +8044,19 @@
+      * If LiveView disappeared, release the curtain using
+      * the existing safe menu_task cleanup path.
+      */
+-    if (!lv_5d4)
++    /*
++     * TESTNS16B:
++     * LV15C Q#2 exit is also valid for normal-shooting copycat.
++     * Abort only if we are in neither supported host.
++     */
++    if (
++        !lv_5d4 &&
++        !testns16b_shoot_copycat_active_5d4
++    )
+     {
+         testlv15c_lv_q_exit_stage_5d4 = 0;
+         testlv15c_lv_q_exit_poll_count_5d4 = 0;
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
+         testlv4_lv_cleanup_pending_5d4 = 1;
+         return;
+     }
+@@ -7917,6 +8089,7 @@
+ 
+         testlv15c_lv_q_exit_stage_5d4 = 2;
+         testlv15c_lv_q_exit_poll_count_5d4 = 0;
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
+ 
+         delayed_call(
+             10,
+@@ -7933,22 +8106,58 @@
+      */
+     if (testlv15c_lv_q_exit_stage_5d4 == 2)
+     {
++        /*
++         * TESTNS16F-B:
++         *
++         * Do not reveal Canon on the first transient sample
++         * outside Q mode.
++         *
++         * Require 15 consecutive 10 ms observations with
++         * CURRENT_GUI_MODE != 0x29.
++         *
++         * If Q appears again during the window, restart the
++         * stability counter from zero.
++         */
+         if (CURRENT_GUI_MODE != 0x29)
+         {
+-            testlv15c_lv_q_exit_stage_5d4 = 0;
+-            testlv15c_lv_q_exit_poll_count_5d4 = 0;
++            testlv15c_lv_q_exit_stable_count_5d4++;
++
++            if (
++                testlv15c_lv_q_exit_stable_count_5d4 < 15
++            )
++            {
++                delayed_call(
++                    10,
++                    testlv15c_lv_q_exit_cbr,
++                    0
++                );
++
++                return;
++            }
+ 
+             /*
++             * Stable outside Q for >=150 ms.
++             *
+              * menu_task performs the HW-proven:
+              *
+              *   Canon layer0 ON
+              *   layer1 blank
+              *   layer1 disable
+              */
++            testlv15c_lv_q_exit_stage_5d4 = 0;
++            testlv15c_lv_q_exit_poll_count_5d4 = 0;
++            testlv15c_lv_q_exit_stable_count_5d4 = 0;
++
+             testlv4_lv_cleanup_pending_5d4 = 1;
+             return;
+         }
+ 
++        /*
++         * Returned/still in Q:
++         * any partial exit observation was transient.
++         */
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
++
+         testlv15c_lv_q_exit_poll_count_5d4++;
+ 
+         if (testlv15c_lv_q_exit_poll_count_5d4 < 100)
+@@ -7969,12 +8178,120 @@
+          */
+         testlv15c_lv_q_exit_stage_5d4 = 0;
+         testlv15c_lv_q_exit_poll_count_5d4 = 0;
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
+         testlv4_lv_cleanup_pending_5d4 = 1;
+         return;
+     }
+ 
+     testlv15c_lv_q_exit_stage_5d4 = 0;
+     testlv15c_lv_q_exit_poll_count_5d4 = 0;
++    testlv15c_lv_q_exit_stable_count_5d4 = 0;
++}
++
++
++
++/*
++ * TESTGM17C-A — wait for hidden Canon PLAY host
++ * in normal shooting.
++ *
++ * At this point:
++ *
++ *   layer1 = frozen shooting GUI
++ *   layer0 = OFF
++ *   ML     = still closed
++ *
++ * Unlike TESTNS16B:
++ *
++ *   NO fake Q
++ *   NO mode 0x29
++ *   NO Q keepalive
++ *
++ * Historical testns16b_* state-variable names are retained
++ * temporarily to keep this first comparison patch surgical.
++ *
++ * No XIMR operation is permitted from this callback.
++ */
++static void
++testgm17c_shoot_play_host_poll_cbr()
++{
++    if (!testns16b_shoot_q_host_pending_5d4)
++        return;
++
++    /*
++     * This transaction belongs only to ordinary non-LV shooting.
++     * Electronic Level remains on its frozen M1 lifecycle.
++     */
++    if (
++        menu_shown ||
++        lv_5d4 ||
++        level_host_active_5d4()
++    )
++    {
++        testns16b_shoot_q_host_pending_5d4 = 0;
++        testns16b_shoot_q_host_poll_count_5d4 = 0;
++        testns16b_shoot_copycat_active_5d4 = 0;
++
++        testlv4_lv_cleanup_pending_5d4 = 1;
++        return;
++    }
++
++    /*
++     * Canon PLAY host committed.
++     *
++     * M1 HW testing already demonstrated that GUIMODE_PLAY
++     * gives ML native logical wheel routing without allowing
++     * MAIN to modify Tv.
++     *
++     * Reuse TESTLV6's dedicated layer1 renderer, but unlike
++     * LiveView there is now a real Canon logical host below it.
++     */
++    if (CURRENT_GUI_MODE == GUIMODE_PLAY)
++    {
++        testns16b_shoot_q_host_pending_5d4 = 0;
++        testns16b_shoot_q_host_poll_count_5d4 = 0;
++
++        testns16b_shoot_copycat_active_5d4 = 1;
++
++        /*
++         * Historical variable name:
++         * here it means "dedicated layer1 ML renderer".
++         */
++        testlv6_lv_menu_no_host_5d4 = 1;
++
++        give_semaphore(gui_sem);
++        return;
++    }
++
++    testns16b_shoot_q_host_poll_count_5d4++;
++
++    if (testns16b_shoot_q_host_poll_count_5d4 < 100)
++    {
++        delayed_call(
++            10,
++            testgm17c_shoot_play_host_poll_cbr,
++            0
++        );
++
++        return;
++    }
++
++    /*
++     * ~1 s timeout.
++     *
++     * Request compositor cleanup from menu_task context.
++     * Do not perform XIMR work here.
++     */
++    testns16b_shoot_q_host_pending_5d4 = 0;
++    testns16b_shoot_q_host_poll_count_5d4 = 0;
++    testns16b_shoot_copycat_active_5d4 = 0;
++
++    /*
++     * If PLAY never committed, request shooting mode again
++     * before revealing Canon.
++     */
++    SetGUIRequestMode(0);
++
++    testlv4_lv_cleanup_pending_5d4 = 1;
+ }
+ 
+ 
+@@ -7997,11 +8314,31 @@
+      */
+     if (testlv6_lv_menu_no_host_5d4)
+     {
+-        ml_menu_opened_from_lv_5d4 = 1;
++        /*
++         * TESTNS16B:
++         * TESTLV6's dedicated-layer renderer is now also reused
++         * by ordinary shooting copycat mode.
++         */
++        ml_menu_opened_from_lv_5d4 =
++            lv_5d4 ? 1 : 0;
++
+         ml_menu_opened_from_level_5d4 = 0;
+         ml_menu_no_host_5d4 = 0;
+ 
+-        NotifyBoxHide();
++        /*
++         * TESTGM18D-B:
++         *
++         * Naked 0x4A never executes NotifyBoxHide().
++         * Remove this side effect only from the LiveView
++         * persistent-host experiment.
++         */
++        if (!(
++            lv_5d4 &&
++            CURRENT_GUI_MODE == 0x4A
++        ))
++        {
++            NotifyBoxHide();
++        }
+ 
+         return;
+     }
+@@ -8175,7 +8512,66 @@
+      * no Canon GUI mode was ever entered.
+      */
+     if (testlv6_lv_menu_no_host_5d4)
++    {
++        /*
++         * TESTGM17C-A:
++         *
++         * Normal shooting DOES have a Canon logical host:
++         * GUIMODE_PLAY.
++         *
++         * Keep layer1 covering the entire transition while Canon
++         * returns to shooting mode 0.
++         *
++         * LiveView Q-host remains untouched and returns exactly
++         * as TESTLV15C expects.
++         */
++        if (
++            !lv_5d4 &&
++            testns16b_shoot_copycat_active_5d4
++        )
++        {
++            SetGUIRequestMode(0);
++
++            /*
++             * Wait up to ~1 second for Canon shooting mode.
++             *
++             * No XIMR operation occurs while the Canon mode is
++             * changing. menu_close() removes layer1 afterwards.
++             */
++            for (int i = 0; i < 100; i++)
++            {
++                if (CURRENT_GUI_MODE == 0)
++                    break;
++
++                msleep(10);
++            }
++        }
++
++        /*
++         * TESTGM18B-A — LiveView 0x4A exit.
++         *
++         * Keep ML layer1 visible while Canon relinquishes the
++         * invisible 0x4A input host.
++         *
++         * Only after CURRENT_GUI_MODE returns to 0 will the
++         * existing menu_close() lifecycle restore Canon layer0
++         * and blank/disable ML layer1.
++         */
++        if (lv_5d4)
++        {
++            SetGUIRequestMode(0);
++
++            for (int i = 0; i < 100; i++)
++            {
++                if (CURRENT_GUI_MODE == 0)
++                    break;
++
++                msleep(10);
++            }
++        }
++
+         return;
++    }
+ 
+     /* TEST238: no Canon mode was entered in normal shooting. */
+     if (ml_menu_no_host_5d4)
+@@ -8284,13 +8680,56 @@
+     piggyback_canon_menu();
+ 
+ 
++#ifdef CONFIG_5D4
++    /*
++     * TESTGM18D-A:
++     *
++     * Renewable LiveView host 0x4A is already providing native
++     * MAIN/REAR ownership and ML renders on dedicated layer1.
++     *
++     * Do NOT disable Canon's front buffer for this one host.
++     *
++     * GM18F: naked 0x4A has a natural ~6 s lease; all ML-host tests so far
++     * return autonomously to mode 0 after ~6 s.
++     *
++     * This is distinct from the XIMR layer0 enable/disable test.
++     */
++    if (!(
++        lv_5d4 &&
++        testlv6_lv_menu_no_host_5d4 &&
++        CURRENT_GUI_MODE == 0x4A
++    ))
++    {
++        canon_gui_disable_front_buffer(0);
++    }
++#else
+     canon_gui_disable_front_buffer(0);
++#endif
++
+     if (lv && EXT_MONITOR_CONNECTED)
+         clrscr();
+ 
+ #if !defined(CONFIG_XF605)
++#ifdef CONFIG_5D4
++    /*
++     * TESTGM18D-B:
++     *
++     * Naked 0x4A also never executes CancelDateTimer().
++     * Do not alter Canon timer state during this differential.
++     */
++    if (!(
++        lv_5d4 &&
++        testlv6_lv_menu_no_host_5d4 &&
++        CURRENT_GUI_MODE == 0x4A
++    ))
++    {
++        CancelDateTimer();
++    }
++#else
+     CancelDateTimer();
+ #endif
++#endif
++
+     menu_redraw_full();
+ }
+ 
+@@ -8300,8 +8739,13 @@
+  
+     if (!menu_shown)
+         return;
++
++
++
+     menu_shown = false;
+ 
++
++
+     customize_mode = 0;
+     update_disp_mode_bits_from_params();
+ 
+@@ -8375,8 +8819,11 @@
+          * after menu_close() has completely returned.
+          */
+         if (
+-            lv_5d4 &&
+-            CURRENT_GUI_MODE == 0x29
++            CURRENT_GUI_MODE == 0x29 &&
++            (
++                lv_5d4 ||
++                testns16b_shoot_copycat_active_5d4
++            )
+         )
+         {
+             testlv4_lv_cleanup_pending_5d4 = 0;
+@@ -8384,8 +8831,21 @@
+             testlv15c_lv_q_exit_stage_5d4 = 1;
+             testlv15c_lv_q_exit_poll_count_5d4 = 0;
+ 
++            /*
++             * TESTNS16F-A — Q-host quiet window.
++             *
++             * TESTNS16E-RC4 proved that merely blocking new
++             * same-state keepalives after root DELETE does not
++             * eliminate the intermittent visible-Q exit.
++             *
++             * Keep layer1 covering the screen for 500 ms before
++             * Q#2, allowing any already-issued Canon/MPU Q refresh
++             * to settle before requesting the opposite transition.
++             *
++             * No XIMR work occurs from the callback.
++             */
+             delayed_call(
+-                80,
++                500,
+                 testlv15c_lv_q_exit_cbr,
+                 0
+             );
+@@ -8419,6 +8879,14 @@
+ 
+             testlv6_lv_menu_no_host_5d4 = 0;
+ 
++            /*
++             * TESTNS16B:
++             * release normal-shooting copycat ownership too.
++             */
++            testns16b_shoot_copycat_active_5d4 = 0;
++            testns16b_shoot_q_host_pending_5d4 = 0;
++            testns16b_shoot_q_host_poll_count_5d4 = 0;
++
+             testlv15c_lv_q_exit_stage_5d4 = 0;
+             testlv15c_lv_q_exit_poll_count_5d4 = 0;
+         }
+@@ -8482,15 +8950,16 @@
+     {
+ #ifdef CONFIG_5D4
+         /*
+-         * TESTLV13A:
+-         * read Canon RAM state only.
++         * NS16D2-CLEAN1:
++         * retired TESTLV13A continuous diagnostic sampling.
+          */
+-        testlv13a_sample_5d4();
+-
+         /*
+-         * TESTLV14A install/restore only from normal menu_task context.
++         * NS16D2-CLEAN1:
++         * retired TESTLV14A SwitchFromPartner hook.
++         *
++         * Do not install the old passive 0x4D30 wrapper during
++         * current input-routing tests.
+          */
+-        testlv14a_service_5d4();
+ #endif
+ 
+         int keyrepeat_active = keyrepeat &&
+@@ -8571,8 +9040,18 @@
+                         gui_state == GUISTATE_MENUDISP &&
+                         !testlv6_lv_menu_no_host_5d4
+                     ) ||
+-                    (!DISPLAY_IS_ON && CURRENT_GUI_MODE != GUIMODE_PLAY))
++                    (
++                        !DISPLAY_IS_ON &&
++                        CURRENT_GUI_MODE != GUIMODE_PLAY &&
++                        !(
++                            lv_5d4 &&
++                            testlv6_lv_menu_no_host_5d4 &&
++                            CURRENT_GUI_MODE == 0x4A
++                        )
++                    ))
+                 {
++
++
+                     /* close ML menu */
+                     gui_stop_menu();
+                     continue;
+@@ -8590,7 +9069,7 @@
+                 /* menu no longer displayed */
+ 
+ #ifdef CONFIG_5D4
+-                
++
+                 /*
+                  * TESTLV4 — safe-context LiveView cleanup.
+                  *
+@@ -8633,6 +9112,16 @@
+                      * timeout happened while menu never opened.
+                      */
+                     testlv6_lv_menu_no_host_5d4 = 0;
++
++
++                    /*
++                     * TESTNS16B:
++                     * Q#2 has committed and compositor ownership
++                     * has now returned to Canon.
++                     */
++                    testns16b_shoot_copycat_active_5d4 = 0;
++                    testns16b_shoot_q_host_pending_5d4 = 0;
++                    testns16b_shoot_q_host_poll_count_5d4 = 0;
+                 }
+ 
+ 
+@@ -9245,6 +9734,199 @@
+ 
+ #ifdef CONFIG_5D4
+     /*
++     * TESTGM17C-A — NORMAL SHOOTING COPYCAT + PLAY HOST.
++     *
++     * Ordinary shooting / INFO display currently present as
++     * external Canon GUI mode 0.
++     *
++     * Sequence under test:
++     *
++     *   current Canon shooting GUI
++     *      -> opaque snapshot on dedicated layer1
++     *      -> hide Canon layer0
++     *      -> SetGUIRequestMode(GUIMODE_PLAY)
++     *      -> wait CURRENT_GUI_MODE == GUIMODE_PLAY
++     *      -> open ML on dedicated layer1
++     *
++     * Critically:
++     *
++     *   NO synthetic Q
++     *   NO hidden mode 0x29
++     *   NO Q keepalive
++     *
++     * M1 remains untouched.
++     * LiveView remains on TESTLV15 Q-host.
++     */
++    if (
++        event->param == BGMT_TRASH &&
++        !menu_shown &&
++        !lv_5d4 &&
++        DISPLAY_IS_ON &&
++        CURRENT_GUI_MODE == 0 &&
++        !level_host_active_5d4()
++    )
++    {
++        /*
++         * Historical pending-variable name retained for this
++         * surgical A/B host test.
++         */
++        if (testns16b_shoot_q_host_pending_5d4)
++            return 0;
++
++        /*
++         * Dedicated layer1 MUST be initialized before the
++         * Canon GUI transition.
++         */
++        if (!level_curtain_active_5d4)
++        {
++            int rc =
++                level_curtain_prearm_5d4();
++
++            if (rc != 0)
++                return 0;
++        }
++
++        /*
++         * Normal shooting has no moving YUV image to preserve:
++         * use the HW-proven opaque snapshot.
++         */
++        int rc =
++            level_curtain_present_snapshot_5d4();
++
++        if (rc != 0)
++        {
++            level_curtain_disable_5d4();
++            return 0;
++        }
++
++        /*
++         * Frozen shooting GUI is now visible on layer1.
++         * Hide live Canon layer0 before requesting PLAY.
++         */
++        rc =
++            testlv5_5d4_canon_gui_layer_enable(0);
++
++        if (rc != 0)
++        {
++            level_curtain_disable_5d4();
++            return 0;
++        }
++
++        testlv5_canon_layer0_disabled_5d4 = 1;
++        testlv2_lv_curtain_visible_5d4 = 1;
++        testlv4_lv_cleanup_pending_5d4 = 0;
++
++        testns16b_shoot_copycat_active_5d4 = 0;
++        testns16b_shoot_q_host_pending_5d4 = 1;
++        testns16b_shoot_q_host_poll_count_5d4 = 0;
++
++        /*
++         * Cancel stale Q-exit state.
++         *
++         * This normal-shooting transaction will not use it.
++         */
++        testlv15c_lv_q_exit_stage_5d4 = 0;
++        testlv15c_lv_q_exit_poll_count_5d4 = 0;
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
++
++        /*
++         * TESTGM17C-A:
++         *
++         * Direct Canon PLAY logical host.
++         * Layer0 is already hidden, therefore any backing Canon
++         * frame remains visually covered by the shooting snapshot.
++         */
++        SetGUIRequestMode(GUIMODE_PLAY);
++
++        delayed_call(
++            10,
++            testgm17c_shoot_play_host_poll_cbr,
++            0
++        );
++
++        /*
++         * Existing state-only failsafe.
++         * Actual XIMR recovery remains in menu_task.
++         */
++        delayed_call(
++            1500,
++            testlv4_lv_cleanup_request_cbr,
++            0
++        );
++
++        return 0;
++    }
++#endif
++
++
++
++
++
++
++
++
++#ifdef CONFIG_5D4
++    /*
++     * TESTGM18A4 — naked 0x4A Canon host probe.
++     *
++     * Intentionally runs before the normal TESTLV2/LV15
++     * LiveView ML-entry lifecycle.
++     *
++     * DELETE #1:
++     *   normal LV mode 0 -> SetGUIRequestMode(0x4A)
++     *
++     * DELETE #2:
++     *   -> SetGUIRequestMode(0)
++     *
++     * No ML menu is opened.
++     * No curtain/layer manipulation.
++     * No fake Q.
++     *
++     * TESTGM18B-A:
++     * naked probe retired while 0x4A is used as the ML host.
++     */
++    if (
++        0 &&
++        event->param == BGMT_TRASH &&
++        !menu_shown &&
++        lv_5d4
++    )
++    {
++        if (!testgm18a_lv_host_probe_active_5d4)
++        {
++            /*
++             * Start only from ordinary LV mode 0.
++             *
++             * If Canon is already in another dialog, leave it
++             * untouched rather than stacking GUI transitions.
++             */
++            if (CURRENT_GUI_MODE != 0)
++                return 0;
++
++            testgm18a_lv_host_probe_active_5d4 = 1;
++
++            SetGUIRequestMode(0x4A);
++
++            return 0;
++        }
++
++        /*
++         * Explicitly close the candidate host.
++         *
++         * Historical 5D4 code used SetGUIRequestMode(0)
++         * to leave the 0x48/MENUDISP backing dialog.
++         */
++        SetGUIRequestMode(0);
++
++        testgm18a_lv_host_probe_active_5d4 = 0;
++
++        return 0;
++    }
++#endif
++
++
++#ifdef CONFIG_5D4
++    /*
+      * TESTLV2:
+      *
+      * DELETE #1:
+@@ -9280,32 +9962,42 @@
+                 return 0;
+ 
+             /*
+-             * TESTLV5:
++             * TESTGM18B-B:
++             *
++             * Keep Canon layer0 ENABLED underneath dedicated
++             * ML layer1.
++             *
++             * GM18F proved naked 0x4A uses a renewable ~6 s lease
++             * while Canon layer0 is active.
+              *
+-             * Frozen Canon GUI is now visible on ML layer1.
+-             * Hide the live Canon GUI layer0.
++             * 0x4A itself draws no visible Canon dialog, so test
++             * whether disabling layer0 was the cause of the ~6 s
++             * ownership loss observed in GM18B-A.
+              *
+-             * Do not touch the LiveView image pipeline.
++             * Do not touch XIMR layer0 ownership here.
+              */
+-            rc =
+-                testlv5_5d4_canon_gui_layer_enable(0);
+-
+-            if (rc != 0)
++            /*
++             * TESTGM18F-C4-v2:
++             *
++             * Restore the HW-tested B-A compositor isolation:
++             * frozen Canon GUI remains on dedicated layer1,
++             * while live Canon GUI layer0 is hidden.
++             *
++             * GM18F proved the old ~6 s failure was the native
++             * renewable 0x4A lease, not layer0 suppression.
++             */
++            if (testlv5_5d4_canon_gui_layer_enable(0) != 0)
+             {
+-                /*
+-                 * TESTLV3 HW PASS:
+-                 * GUI-event-context blank + disable is safe in LV.
+-                 */
+                 test161_5d4_gdraw_blank_keepalive();
+                 test147_5d4_gdraw_disable();
+-
++            
+                 level_curtain_active_5d4 = 0;
+                 level_curtain_opaque_5d4 = 0;
+                 level_curtain_auto_prearmed_5d4 = 0;
+-
++            
+                 return 0;
+             }
+-
++            
+             testlv5_canon_layer0_disabled_5d4 = 1;
+             testlv2_lv_curtain_visible_5d4 = 1;
+             testlv4_lv_cleanup_pending_5d4 = 0;
+@@ -9346,8 +10038,20 @@
+          */
+         testlv15c_lv_q_exit_stage_5d4 = 0;
+         testlv15c_lv_q_exit_poll_count_5d4 = 0;
++        testlv15c_lv_q_exit_stable_count_5d4 = 0;
+ 
+-        fake_simple_button(BGMT_Q);
++        /*
++         * TESTGM18B-A:
++         *
++         * Direct renewable Canon LiveView host.
++         *
++         * No synthetic Q.
++         * No mode 0x29.
++         * No keepalive.
++         */
++
++
++        SetGUIRequestMode(0x4A);
+ 
+         delayed_call(
+             10,
+@@ -9467,6 +10171,29 @@
+     }
+ #endif
+ 
++#ifdef CONFIG_5D4
++    /*
++     * TESTNS16E-RC4 — stop hidden-Q keepalive immediately.
++     *
++     * Submenu DELETE has already returned before this point,
++     * therefore this is root-close only.
++     */
++    if (
++        event->param == BGMT_TRASH &&
++        !IS_FAKE(event) &&
++        menu_shown &&
++        submenu_level == 0 &&
++        testlv6_lv_menu_no_host_5d4 &&
++        (
++            CURRENT_GUI_MODE == 0x29 ||
++            CURRENT_GUI_MODE == 0x4A
++        )
++    )
++    {
++        testlv15d_q_host_exit_armed_5d4 = 1;
++    }
++#endif
++
+ #ifdef CONFIG_5D4
+     /*
+      * TEST262E-Q-REFRESH

@@ -100,3 +100,22 @@ Hardware regression confirmed clean entry and exit, moving LiveView beneath ML, 
 Exact incremental source patch: M1-RC1 `src/menu.c` SHA-256 `f0d4c8642d611fc3d4e12d58e7e17d0ed8327605c3c178944c345650192d8011` to LiveView result `6408dad4d4312d8b97a2a19f2b5821774aaa795fc8346a80bbd27e8d059e9fc4`. Hardware-tested `autoexec.bin`: `347738d8b3a7bcec6abdb4c9b8d23167586b45ccd17cdf0b8fe89da98091d4c4` (not committed).
 
 TESTLV instrumentation remains intentionally present. Normal shooting, the INFO-cycle Quick Control display, display-off, Auto-off/Wake, and LiveView cleanup are separate follow-up work.
+
+
+## GUI Lifecycle Hardware Checkpoint 1 — GM18F-C4-v2
+
+Status: `HARDWARE VERIFIED / RESEARCH CHECKPOINT` on physical Canon EOS 5D Mark IV firmware 1.3.3.
+
+The validated lifecycle now covers single-DELETE ML entry and clean return across Electronic Level, normal shooting, INFO Quick Control and LiveView. MAIN and REAR wheels navigate ML without changing Tv/Av underneath; ownership remains stable beyond 20–30 seconds and returns immediately to Canon after exit. LiveView uses invisible Canon host `0x4A`, maintains moving video, and passed half-shutter testing without a significant Canon flash, freeze or Err 70.
+
+Exact source provenance: previous LiveView `src/menu.c` SHA-256 `6408dad4d4312d8b97a2a19f2b5821774aaa795fc8346a80bbd27e8d059e9fc4`; GM18F-C4-v2 result SHA-256 `380e101dc58df773755b7dc5991f1ab43e7baab486675c5b14260676029c619a`.
+
+Known limitations:
+
+1. Half-shutter from ML in normal shooting or INFO Quick Control can briefly show `ML -> black -> stale ML -> Canon`. Current evidence identifies this as a cosmetic compositor/OSD presentation regression, not a logical ML-menu reopen.
+2. Electronic Level plus half-shutter previously showed ML/level contention at roughly 2 Hz and still requires dedicated lifecycle investigation.
+3. Display-off passed the existing basic lifecycle/half-shutter matrix but is not exhaustively regression-tested.
+4. Auto-off/Wake remains a separate unresolved lifecycle topic.
+5. Less common Canon GUI states may still expose unknown interactions.
+
+The exact HW-tested C4-v2 delta is preserved in the research patch. TESTLV/TESTGM instrumentation remains in that evidence because removing it would create an untested derivative. Production-name cleanup requires a separate build and hardware regression before promotion. No tag, release or merge to `main` is implied.
