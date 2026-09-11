@@ -119,3 +119,16 @@ Known limitations:
 5. Less common Canon GUI states may still expose unknown interactions.
 
 The exact HW-tested C4-v2 delta is preserved in the research patch. TESTLV/TESTGM instrumentation remains in that evidence because removing it would create an untested derivative. Production-name cleanup requires a separate build and hardware regression before promotion. No tag, release or merge to `main` is implied.
+
+
+## GUI lifecycle source cleanup — RC2-V2B
+
+Status: `RESEARCH UPDATE / BUILD-EQUIVALENT CLEANUP` for Canon EOS 5D Mark IV firmware 1.3.3.
+
+Starting from local `5d4-133-candidate` commit `77bfce0ff4b08b93e0ae6719a883f14ad2ab8a33`, the menu source was mechanically cleaned without changing generated menu code. Pre-cleanup `src/menu.c` SHA-256 is `3e96bb91c5c2cb3472962bdafa8b92eadddfcded9cee9037900c8f0e1cb3841c`; accepted RC2-V2B SHA-256 is `f5466d01b585f59a1071ca9f724355f82f83d10e3ce2a316b85642a5d311714b`.
+
+The build passed. Complete `menu.o` is byte-identical with SHA-256 `62a53497d813229c6727f2d7039dc2c6402ffa95d7bd19590365a139b46039c7`; every allocated section and the symbol table are identical. `magiclantern.bin` retains the same size and differs at four bytes only, all traced to `build_date` timestamp metadata. No functional binary difference is attributable to the cleanup.
+
+The cleanup removes trailing whitespace, a disabled duplicate `BGMT_PLAY` block and an obsolete commented `guimode.ml.menu` tuner while preserving physical line numbering for `__LINE__` stability. GUI-event diagnostics, TESTLV/TESTGM/TESTNS instrumentation, TEST90 and stress/profiling infrastructure remain intentionally present.
+
+No new hardware run was performed for this source-only cleanup. Hardware claims remain limited to the underlying GUI Lifecycle HC1 checkpoint. Packaging still reports missing `ML-SETUP.FIR`; no generated camera binary is published.
