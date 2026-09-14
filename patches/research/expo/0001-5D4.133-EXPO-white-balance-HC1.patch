@@ -1,0 +1,104 @@
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+index 56319ef..44c951b 100644
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -10,7 +10,8 @@
+ #define CONFIG_CRASH_LOG
+ 
+ #undef CONFIG_ADDITIONAL_VERSION
+-#undef CONFIG_PROP_REQUEST_CHANGE
++#define CONFIG_PROP_REQUEST_CHANGE
++#define FEATURE_WHITE_BALANCE
+ #undef CONFIG_AUTOBACKUP_ROM
+ 
+ #define FEATURE_SHOW_SHUTTER_COUNT
+diff --git a/platform/5D4.133/property_whitelist.h b/platform/5D4.133/property_whitelist.h
+index ca674a6..1cb1b9a 100644
+--- a/platform/5D4.133/property_whitelist.h
++++ b/platform/5D4.133/property_whitelist.h
+@@ -36,6 +36,18 @@ const uint32_t prop_handler_deny[] =
+ // allow writes / allow prop_request_change() for these:
+ const uint32_t prop_write_allow [] =
+ {
++    /* White Balance / Kelvin */
++    PROP_WB_MODE_LV,
++    PROP_WB_KELVIN_LV,
++    PROP_WB_MODE_PH,
++    PROP_WB_KELVIN_PH,
++
++    /* White Balance shift */
++    PROP_WBS_GM,
++    PROP_WBS_BA,
++
++    /* Custom White Balance gains */
++    PROP_CUSTOM_WB,
+ };
+ 
+ // anything not listed above will allow reads but not writes
+diff --git a/src/shoot.c b/src/shoot.c
+index c3395c2..554da99 100644
+--- a/src/shoot.c
++++ b/src/shoot.c
+@@ -1949,7 +1949,11 @@ static void wbs_gm_auto()
+ 
+ void kelvin_n_gm_auto()
+ {
++#ifdef CONFIG_5D4
++    if (lv_5d4)
++#else
+     if (lv)
++#endif
+     {
+         kelvin_auto_flag = 1;
+         wbs_gm_auto_flag = 1;
+@@ -1995,7 +1999,11 @@ wb_custom_gain_toggle( void * priv, int delta )
+ 
+ static int crit_kelvin(int k)
+ {
++#ifdef CONFIG_5D4
++    if (!lv_5d4) return 0;
++#else
+     if (!lv) return 0;
++#endif
+ 
+     if (k > 0)
+     {
+@@ -2016,7 +2024,11 @@ static int crit_kelvin(int k)
+ 
+ static int crit_wbs_gm(int k)
+ {
++#ifdef CONFIG_5D4
++    if (!lv_5d4) return 0;
++#else
+     if (!lv) return 0;
++#endif
+ 
+     k = COERCE(k, -10, 10);
+     lens_set_wbs_gm(k);
+@@ -3982,7 +3994,7 @@ static struct menu_entry expo_menus[] = {
+                 .priv = (void *)(1),
+                 .update = wb_custom_gain_display,
+                 .select = wb_custom_gain_toggle,
+-                .icon_type = IT_PERCENT,
++                .icon_type = IT_AUTO,
+                 .help = "RED channel multiplier, for custom white balance.",
+                 .edit_mode = EM_SHOW_LIVEVIEW,
+             },
+@@ -3991,7 +4003,7 @@ static struct menu_entry expo_menus[] = {
+                 .priv = (void *)(2),
+                 .update = wb_custom_gain_display,
+                 .select = wb_custom_gain_toggle,
+-                .icon_type = IT_PERCENT,
++                .icon_type = IT_AUTO,
+                 .help = "GREEN channel multiplier, for custom white balance.",
+                 .edit_mode = EM_SHOW_LIVEVIEW,
+             },
+@@ -4000,7 +4012,7 @@ static struct menu_entry expo_menus[] = {
+                 .priv = (void *)(3),
+                 .update = wb_custom_gain_display,
+                 .select = wb_custom_gain_toggle,
+-                .icon_type = IT_PERCENT,
++                .icon_type = IT_AUTO,
+                 .help = "BLUE channel multiplier, for custom white balance.",
+                 .edit_mode = EM_SHOW_LIVEVIEW,
+             },
