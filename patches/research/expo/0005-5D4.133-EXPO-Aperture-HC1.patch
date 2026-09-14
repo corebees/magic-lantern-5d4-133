@@ -1,0 +1,78 @@
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -13,6 +13,7 @@
+ #define CONFIG_PROP_REQUEST_CHANGE
+ #define FEATURE_WHITE_BALANCE
+ #define FEATURE_EXPO_ISO
+ #define FEATURE_EXPO_SHUTTER
++#define FEATURE_EXPO_APERTURE
+ #undef CONFIG_AUTOBACKUP_ROM
+ 
+ #define FEATURE_SHOW_SHUTTER_COUNT
+diff --git a/platform/5D4.133/property_whitelist.h b/platform/5D4.133/property_whitelist.h
+--- a/platform/5D4.133/property_whitelist.h
++++ b/platform/5D4.133/property_whitelist.h
+@@ -52,6 +52,9 @@ const uint32_t prop_write_allow [] =
+ 
+     /* Shutter */
+     PROP_SHUTTER,
++
++    /* Aperture */
++    PROP_APERTURE,
+ };
+ 
+ // anything not listed above will allow reads but not writes
+diff --git a/src/shoot.c b/src/shoot.c
+--- a/src/shoot.c
++++ b/src/shoot.c
+@@ -1820,8 +1820,10 @@ aperture_toggle( void* priv, int sign)
+ {
+     if (!lens_info.lens_exists) return; // only chipped lenses can change aperture
+     if (!lens_info.raw_aperture) return;
++#ifndef CONFIG_5D4
+     int amin = codes_aperture[1];
+     int amax = codes_aperture[COUNT(codes_aperture)-1];
++#endif
+     
+     int a = lens_info.raw_aperture;
+ 
+@@ -1829,6 +1831,17 @@ aperture_toggle( void* priv, int sign)
+     {
+         do {
+             a += sign;
++#ifdef CONFIG_5D4
++            if (a > lens_info.raw_aperture_max)
++            {
++                a = lens_info.raw_aperture_max;
++                break;
++            }
++            if (a < lens_info.raw_aperture_min)
++            {
++                a = lens_info.raw_aperture_min;
++                break;
++            }
++#else
+             if (priv == (void*)-1) // don't wrap around
+             {
+                 if (a > amax) { a = amax; break; }
+@@ -1839,6 +1852,7 @@ aperture_toggle( void* priv, int sign)
+                 if (a > amax) a = amin;
+                 if (a < amin) a = amax;
+             }
++#endif
+             if (lens_info.raw_aperture_min >= lens_info.raw_aperture_max) break;
+         }
+         while (a < lens_info.raw_aperture_min || a > lens_info.raw_aperture_max);
+@@ -4207,7 +4221,11 @@ static struct menu_entry expo_menus[] = {
+         .name = "Aperture",
+         .update     = aperture_display,
+         .select     = aperture_toggle,
++#ifdef CONFIG_5D4
++        .icon_type  = IT_AUTO,
++#else
+         .icon_type  = IT_PERCENT,
++#endif
+         .help = "Fine-tune aperture value. Displays APEX Av.",
+         .edit_mode = EM_SHOW_LIVEVIEW,
+     },
