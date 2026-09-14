@@ -1,0 +1,50 @@
+diff --git a/src/shoot.c b/src/shoot.c
+--- a/src/shoot.c
++++ b/src/shoot.c
+@@ -1852,6 +1852,27 @@
+ 
+ #ifdef FEATURE_WHITE_BALANCE
+ 
++#ifdef CONFIG_5D4
++static void canon_auto_wb(void * priv, int sign)
++{
++    (void) priv;
++    (void) sign;
++
++    uint32_t mode = WB_AUTO;
++    prop_request_change(PROP_WB_MODE_LV, &mode, 4);
++    prop_request_change(PROP_WB_MODE_PH, &mode, 4);
++}
++
++static void reset_wb_shift(void * priv, int sign)
++{
++    (void) priv;
++    (void) sign;
++
++    lens_set_wbs_gm(0);
++    lens_set_wbs_ba(0);
++}
++#endif
++
+ void kelvin_toggle( void* priv, int sign )
+ {
+     int k;
+@@ -3962,6 +3983,18 @@ static struct menu_entry expo_menus[] = {
+         .edit_mode = EM_SHOW_LIVEVIEW,
+         .submenu_width = 700,
+         .children =  (struct menu_entry[]) {
++#ifdef CONFIG_5D4
++            {
++                .name = "Canon Auto WB",
++                .select = canon_auto_wb,
++                .help = "Switch back to Canon automatic white balance.",
++            },
++            {
++                .name = "Reset WB Shift",
++                .select = reset_wb_shift,
++                .help = "Reset Green-Magenta and Blue-Amber WB shifts to zero.",
++            },
++#endif
+             {
+                 .name = "White Balance",
+                 .update    = kelvin_display,

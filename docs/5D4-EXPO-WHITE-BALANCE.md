@@ -11,6 +11,8 @@ The EXPO White Balance controls are enabled and functional on the 5D Mark IV:
 - Green/Magenta shift: hardware PASS
 - Blue/Amber shift: hardware PASS
 - R, G and B Custom WB multipliers: hardware PASS
+- Canon Auto WB: hardware PASS
+- Reset WB Shift: hardware PASS
 - Auto adjust Kelvin + G/M: starts and executes on hardware
 
 No freeze or Err 70 was observed in the successful final paths.
@@ -18,6 +20,17 @@ No freeze or Err 70 was observed in the successful final paths.
 The validated write allowlist contains `PROP_WB_MODE_LV`,
 `PROP_WB_KELVIN_LV`, `PROP_WB_MODE_PH`, `PROP_WB_KELVIN_PH`,
 `PROP_WBS_GM`, `PROP_WBS_BA` and `PROP_CUSTOM_WB`.
+
+## Canon Auto WB and shift reset
+
+The 5D4-specific **Canon Auto WB** action writes `WB_AUTO` to both
+`PROP_WB_MODE_LV` and `PROP_WB_MODE_PH`. Hardware testing confirmed that ML
+reports Auto, Canon reports AWB, LiveView returns to Canon AWB, and existing WB
+shift values remain unchanged.
+
+The separate **Reset WB Shift** action writes zero through the existing G/M and
+B/A setters. It preserves the selected WB mode; hardware testing confirmed both
+axes return to zero and Canon's GUI remains coherent.
 
 ## Multiplier submenu freeze
 
@@ -47,10 +60,24 @@ models retain the upstream `lv` path.
 
 ## Auto WB limitation
 
-The ML routine samples a central YUV region, adjusts Kelvin from B-R, and adjusts
-G/M from `(R+B)/2-G`. It is a push-button neutral-target aid, not a replacement
-for Canon's full-scene AWB. General-scene testing produced noticeably worse
-results than Canon AWB. Quality improvements are deferred to separate research.
+The ML **Auto adjust Kelvin + G/M** routine samples a central YUV region,
+adjusts Kelvin from B-R, and adjusts G/M from `(R+B)/2-G`. It is a push-button
+neutral-target aid, not a replacement for Canon's full-scene AWB. General-scene
+testing produced noticeably worse results than Canon AWB. This limitation does
+not affect the separate Canon Auto WB action. Quality improvements are deferred
+to separate research.
+
+## Power lifecycle A/B validation
+
+Controlled PRE-EXPO and EXPO comparisons found the approximately four-second
+power-on time and intermittent absence of Canon sensor cleaning during shutdown
+on the PRE-EXPO candidate as well. A previously observed need for a wake button
+press was not reproduced in later controlled runs. Upstream White Balance and
+the final EXPO candidate showed similar intermittent shutdown behavior.
+
+No startup, wake or shutdown regression is therefore currently attributed to
+the EXPO White Balance changes. The intermittent Canon shutdown/sensor-cleaning
+behavior remains a separate 5D4 platform lifecycle issue.
 
 ## Provenance
 
@@ -58,23 +85,25 @@ Local source baseline: `5d4-133-candidate` commit
 `77bfce0ff4b08b93e0ae6719a883f14ad2ab8a33` (not present in this partial public
 repository).
 
-Exact hardware-tested source SHA-256 values:
+The exact final workcard patch has SHA-256
+`1b2eafeaf0b2922d4157f8e42ddd6e726884661fbadab8204180da265e2aaca7`.
+Temporary AWB/L4 NotifyBox probes were removed before that patch was captured;
+`src/menu.c` was verified byte-identical to its pre-isolation snapshot.
 
-- `platform/5D4.133/features.h`: `d81073bd62166a4d3b0ef99eac119d31e2f5a178b217114d6c8d46364c238332`
-- `platform/5D4.133/property_whitelist.h`: `cef4887618371a80d5302315a1af48b0dc257e6f011d6eb34203bcf2d8b1c276`
-- `src/shoot.c`: `18d6c8bfe1bdae1ff06d7557581e306c717d93fbfb93828d47c2c81dbc3612b7`
+The source series in this branch is split into:
 
-The attached research patch is a minimal integration delta against upstream
-`reticulatedpines/magiclantern_simplified` commit
-`d7e3407b8f69ddde30516e298d4e077daa16df0c`. It deliberately excludes unrelated
-5D4 GUI, Zebra and debug configuration found in the local source snapshot.
+1. `0001-5D4.133-EXPO-white-balance-HC1.patch`: enablement, property whitelist,
+   `lv_5d4` guards, and the `IT_AUTO` multiplier fix.
+2. `0002-5D4.133-EXPO-WB-Canon-AWB-reset-HC1.patch`: the two final 5D4-only
+   hardware-validated actions for Canon AWB and WB-shift reset.
 
-The exact tested `shoot.c` duplicated the combined Auto WB declaration in its
-non-5D4 preprocessor branch. The integration patch reuses the existing upstream
-menu declaration instead. For `CONFIG_5D4`, the compiled functional path and
-menu order are unchanged; the normalization avoids a duplicate entry on other
-models. It is therefore a cleaned integration derivative, not a byte-identical
-copy of the hardware-tested source.
+Together these reproduce the functional changes from the final workcard while
+retaining the cleaned upstream menu layout established in `0001`.
 
-Generated `autoexec.bin`, ROMs, Canon firmware material, logs and workcard
-archives are not included. No merge to `main`, tag or release is implied.
+The final camera build was 230592 bytes with SHA-256
+`64b88e774cfdcf3dab92dad1e5b87dfdf5627b108b278c18dac63822b5ebf3a9`.
+It is build evidence only and is not included.
+
+Generated `autoexec.bin`, ROMs, Canon firmware material, logs, diagnostics and
+workcard archives are not included. No merge to `main`, tag or release is
+implied.
