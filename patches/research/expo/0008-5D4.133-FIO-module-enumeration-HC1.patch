@@ -1,0 +1,24 @@
+diff --git a/src/fio-ml.h b/src/fio-ml.h
+--- a/src/fio-ml.h
++++ b/src/fio-ml.h
+@@ -104,7 +104,19 @@ struct fio_file {
+     uint32_t unk_04[4];
+ };
+ SIZE_CHECK_STRUCT(fio_file, 0x28 + FIO_MAX_PATH_LENGTH);
+-#elif defined(CONFIG_DIGIC_45) || defined(CONFIG_DIGIC_VI)
++#elif defined(CONFIG_5D4)
++struct fio_file {
++    uint16_t mode;
++    uint16_t unk_01;
++    uint32_t size;
++    uint32_t timestamp;
++    uint32_t unk_02;
++    uint32_t unk_03[2];
++    char name[FIO_MAX_PATH_LENGTH];
++    uint32_t unk_04[4];
++};
++SIZE_CHECK_STRUCT(fio_file, 0x28 + FIO_MAX_PATH_LENGTH);
++#elif defined(CONFIG_DIGIC_45) || defined(CONFIG_DIGIC_VI)
+ struct fio_file {
+     uint16_t mode;
+     uint16_t unk_01;
