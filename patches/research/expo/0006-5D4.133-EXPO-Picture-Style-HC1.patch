@@ -1,0 +1,41 @@
+diff --git a/platform/5D4.133/consts.h b/platform/5D4.133/consts.h
+--- a/platform/5D4.133/consts.h
++++ b/platform/5D4.133/consts.h
+@@ -1,5 +1,5 @@
+-#define NUM_PICSTYLES 10
++#define NUM_PICSTYLES 11 // 5D4: Auto + Fine Detail, 3 sharpness controls
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -14,6 +14,7 @@
+ #define FEATURE_WHITE_BALANCE
+ #define FEATURE_EXPO_ISO
+ #define FEATURE_EXPO_SHUTTER
+ #define FEATURE_EXPO_APERTURE
++#define FEATURE_PICSTYLE
+ #undef CONFIG_AUTOBACKUP_ROM
+ 
+ #define FEATURE_SHOW_SHUTTER_COUNT
+diff --git a/platform/5D4.133/property_whitelist.h b/platform/5D4.133/property_whitelist.h
+--- a/platform/5D4.133/property_whitelist.h
++++ b/platform/5D4.133/property_whitelist.h
+@@ -55,6 +55,20 @@ const uint32_t prop_write_allow [] =
+ 
+     /* Aperture */
+     PROP_APERTURE,
++
++    /* Picture Style selection and editable settings */
++    PROP_PICTURE_STYLE,
++    PROP_PICSTYLE_SETTINGS_STANDARD,
++    PROP_PICSTYLE_SETTINGS_PORTRAIT,
++    PROP_PICSTYLE_SETTINGS_LANDSCAPE,
++    PROP_PICSTYLE_SETTINGS_FINEDETAIL,
++    PROP_PICSTYLE_SETTINGS_NEUTRAL,
++    PROP_PICSTYLE_SETTINGS_FAITHFUL,
++    PROP_PICSTYLE_SETTINGS_MONOCHROME,
++    PROP_PICSTYLE_SETTINGS_USERDEF1,
++    PROP_PICSTYLE_SETTINGS_USERDEF2,
++    PROP_PICSTYLE_SETTINGS_USERDEF3,
+ };
+ 
+ // anything not listed above will allow reads but not writes
