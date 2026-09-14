@@ -1,0 +1,40 @@
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -12,6 +12,7 @@
+ #undef CONFIG_ADDITIONAL_VERSION
+ #define CONFIG_PROP_REQUEST_CHANGE
+ #define FEATURE_WHITE_BALANCE
+ #define FEATURE_EXPO_ISO
++#define FEATURE_EXPO_SHUTTER
+ #undef CONFIG_AUTOBACKUP_ROM
+ 
+ #define FEATURE_SHOW_SHUTTER_COUNT
+diff --git a/platform/5D4.133/property_whitelist.h b/platform/5D4.133/property_whitelist.h
+--- a/platform/5D4.133/property_whitelist.h
++++ b/platform/5D4.133/property_whitelist.h
+@@ -49,6 +49,9 @@ const uint32_t prop_write_allow [] =
+ 
+     /* ISO */
+     PROP_ISO,
++
++    /* Shutter */
++    PROP_SHUTTER,
+ };
+ 
+ // anything not listed above will allow reads but not writes
+diff --git a/src/shoot.c b/src/shoot.c
+--- a/src/shoot.c
++++ b/src/shoot.c
+@@ -4197,7 +4197,11 @@ static struct menu_entry expo_menus[] = {
+         .name = "Shutter",
+         .update     = shutter_display,
+         .select     = shutter_toggle,
++#ifdef CONFIG_5D4
++        .icon_type  = IT_AUTO,
++#else
+         .icon_type  = IT_PERCENT,
++#endif
+         .help = "Fine-tune shutter value. Displays APEX Tv or degrees equiv.",
+         .edit_mode = EM_SHOW_LIVEVIEW,
+     },
