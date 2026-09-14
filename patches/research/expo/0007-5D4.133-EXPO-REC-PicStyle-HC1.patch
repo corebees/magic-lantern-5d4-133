@@ -1,0 +1,22 @@
+diff --git a/platform/5D4.133/property_whitelist.h b/platform/5D4.133/property_whitelist.h
+--- a/platform/5D4.133/property_whitelist.h
++++ b/platform/5D4.133/property_whitelist.h
+@@ -27,7 +27,6 @@
+ // deny reads / do not register property handlers for these
+ const uint32_t prop_handler_deny[] =
+ {
+-    PROP_MVR_REC_START, // probably related to MVR stubs being all wrong
+     PROP_LV_AFFRAME, // ML asserts
+ };
+ 
+diff --git a/platform/5D4.133/features.h b/platform/5D4.133/features.h
+--- a/platform/5D4.133/features.h
++++ b/platform/5D4.133/features.h
+@@ -15,6 +15,7 @@
+ #define FEATURE_EXPO_SHUTTER
+ #define FEATURE_EXPO_APERTURE
+ #define FEATURE_PICSTYLE
++#define FEATURE_REC_PICSTYLE
+ #undef CONFIG_AUTOBACKUP_ROM
+ 
+ #define FEATURE_SHOW_SHUTTER_COUNT
