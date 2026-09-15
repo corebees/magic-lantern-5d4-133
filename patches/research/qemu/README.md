@@ -41,3 +41,15 @@ The second complete patch retains the earlier MEMDIV and MOCom/Omar work and add
 - `QEMU40EN`: narrow ResManagPostS TX0/RX1 diagnostic for `D2000004`, TX IRQ `0x0D`, RX IRQ `0x1C`, and a two-word receive FIFO.
 
 No QEMU39–QEMU41 report or new reusable script accompanied this source snapshot. These additions are therefore `EXPERIMENTAL / NOT YET QEMU-VERIFIED`; the earlier MEMDIV result keeps its verified status.
+
+## Post-PAD-AD integration boundary
+
+The later QEMU40PAD-BB/BC experimental tree is not represented by a new source
+patch here. Its six-file delta contains 10,710 additions and 120 deletions,
+dominated by temporary logging. The complete delta and the separate 5D4 MPU
+spell candidate are preserved privately by hash and indexed in
+`docs/5D4-QEMU-POST-PAD-AD-INDEX.md`.
+
+Do not extend `0003` by copying the current working tree wholesale. Future
+patches must isolate a minimal causal change, gate or remove diagnostics, and be
+retested from a declared source baseline.

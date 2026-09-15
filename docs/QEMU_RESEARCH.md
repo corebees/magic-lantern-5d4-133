@@ -1,6 +1,6 @@
 # 5D4.133 QEMU research
 
-Updated: 2026-09-10
+Updated: 2026-09-15
 
 Status: `RESEARCH / QEMU VERIFIED IN PART / NOT HARDWARE VALIDATION`
 
@@ -100,3 +100,40 @@ Current later blockers include TouchPanel semaphore error 9/boot-wakeup failure 
 The current `hw/eos/eos.c` diff is preserved as `0002-qemu-eos-5D4-QEMU40-current.patch`, SHA-256 `b93a6e4c76fb69cae69401dacc2f974d865ee94c9b87c22bfc040dd20d4483ca`, still based on upstream `4b667a1d`. It expands the diff from 37 to 255 added lines.
 
 The research archive supplied with this checkpoint was byte-identical to the previous archive (`e44bf71163aaa017427c9bbc383875fcd63ed05df0965e777bf87db42f6ba5ea`), and filesystem search found only the QEMU40EN workcard patch, whose changes are already incorporated in the complete source diff. Consequently QEMU40DK, QEMU40EA, and QEMU40EN are recorded as source-preservation checkpoints, not successful test results.
+
+## Post-PAD-AD source triage — 2026-09-15
+
+Research continued beyond PAD-AD through the QEMU40PAD-BB and
+QEMU40PAD-BC/R20 series. The later work investigates post-startup GUI/display
+delivery, Event 21 completion/wait behavior, dispatcher scheduling, and SIO3
+source selection. These are experimental reverse-engineering probes; they do
+not establish a faithful global Canon GUI boot.
+
+The current qemu-eos working tree is deliberately **not** published as a source
+patch. Against upstream `4b667a1d3c08ab7a55835d15ddbd884fa754946d`, it
+contains six modified tracked files and 10,710 additions / 120 deletions.
+`hw/eos/dbi/logging.c` alone adds 6,858 lines and `hw/eos/eos.c` adds
+3,791 lines while removing 119. This is accumulated diagnostic
+instrumentation, not a reviewable causal implementation.
+
+The full tracked delta is preserved outside GitHub as
+`qemu-eos-current-tracked.diff`, SHA-256
+`efaff28354ba9d65b44db8be7aa1a091843df5088b7d6ed5cd829f7f11bc68a0`.
+The untracked 5D4 MPU spell candidate is preserved separately as
+`5D4.h.current`, SHA-256
+`97ea1c1a585427377ce21c590bf72b09a05fd4d16d92441e46bc13dc8af5ad66`.
+
+R20GY produced approximately 403 MB for each principal output file because of
+runaway logging. It is an invalid evidence shape for behavioral comparison and
+must not be classified as either a regression or a fix.
+
+The authoritative evidence boundary is now the persistent workcards:
+
+- `QEMU40PAD-BB-MZRM-DEFERRED`
+- `QEMU40PAD-BC-POSTSTARTUP-GUI`
+- `QEMU-REPO-REORG-20260915`
+
+Future source integration must extract minimal causal changes from those
+workcards, separate functional models from logging/probes, and validate each
+cleanup independently. Build products, ROM material, raw workcards and large
+runtime logs remain excluded.
