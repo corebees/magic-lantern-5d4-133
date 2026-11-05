@@ -1,0 +1,381 @@
+diff --git a/src/mem.c b/src/mem.c
+index 4902648..dd8dc50 100644
+--- a/src/mem.c
++++ b/src/mem.c
+@@ -927,6 +927,76 @@ static int choose_allocator(int size, unsigned int flags)
+ /* these two will replace all malloc calls */
+ 
+ /* returns 0 if it couldn't allocate */
++/*
++ * SHOOT05-R17: experimental fixed-backend allocator.
++ *
++ * AllocateMemory only. No malloc/shoot_malloc/SRM fallback.
++ * Preserve at least 1.5 MiB of free AllocateMemory pool,
++ * plus 1 KiB accounting headroom after allocation.
++ *
++ * This is NOT proof that the pool is safe on the 5D4.
++ */
++void *ml_alloc_persistent_am(
++    size_t size,
++    const char *file,
++    unsigned int line
++)
++{
++    if (!mem_sem || !size || size > 512 * 1024)
++        return NULL;
++
++    take_semaphore(mem_sem, 0);
++
++    void *ptr = NULL;
++
++    /*
++     * The AllocateMemory backend is slot 1 in
++     * the verified R16B allocator table.
++     */
++    const int a = 1;
++
++    if (a >= COUNT(allocators))
++        goto done;
++
++    if (strcmp(allocators[a].name, "AllocateMemory"))
++        goto done;
++
++    const int free_space =
++        GetFreeMemForAllocateMemory();
++
++    const int max_region =
++        GetMaxRegionForAllocateMemory();
++
++    const unsigned int required =
++        (unsigned int)size + 1024U;
++
++    const unsigned int reserve =
++        1536U * 1024U;
++
++    if (
++        free_space <= 0 ||
++        max_region <= 0 ||
++        (unsigned int)free_space <= required + reserve ||
++        (unsigned int)max_region <= required
++    )
++        goto done;
++
++    /*
++     * Use ML memcheck, but force allocator #1.
++     * No automatic backend selection.
++     */
++    ptr = memcheck_malloc(
++        size,file,line,a,0
++    );
++
++    if (ptr)
++        ptr = CACHEABLE(ptr);
++
++done:
++    give_semaphore(mem_sem);
++    return ptr;
++}
++
+ void* __mem_malloc(size_t size, unsigned int flags, const char *file, unsigned int line)
+ {
+ #if defined(CONFIG_INSTALLER)
+diff --git a/src/mem.h b/src/mem.h
+index 5390023..256acb1 100644
+--- a/src/mem.h
++++ b/src/mem.h
+@@ -73,6 +73,18 @@ extern void free(void *buf);
+ 
+ /* not to be called directly (only via macros) */
+ extern void *__mem_malloc(size_t len, unsigned int flags, const char *file, unsigned int line);
++
++/*
++ * SHOOT05-R17 experimental persistent allocation.
++ * Exactly AllocateMemory backend, without fallback.
++ * Do not use on hardware until separately validated.
++ */
++extern void *ml_alloc_persistent_am(
++    size_t len,
++    const char *file,
++    unsigned int line
++);
++
+ extern void __mem_free(void *buf);
+ 
+ /* flags */
+diff --git a/src/shoot.c b/src/shoot.c
+index 8d9568b..8408745 100644
+--- a/src/shoot.c
++++ b/src/shoot.c
+@@ -3414,7 +3414,68 @@ extern MENU_UPDATE_FUNC(lcd_release_display);
+ 
+ extern int voice_tags; // beep.c
+ 
++
++/* SHOOT05-R2: 5D IV menu-only preview.
++ * These settings are NOT connected to HDR shooting.
++ * No Canon property request is made by this code.
++ */
++#ifdef CONFIG_5D4
++static CONFIG_INT("s05.preview", s05_preview_enabled, 0);
++static CONFIG_INT("s05.frames", s05_preview_frames, 3);
++static CONFIG_INT("s05.ev8", s05_preview_ev8, 8);
++static CONFIG_INT("s05.sequence", s05_preview_sequence, 1);
++
++static MENU_UPDATE_FUNC(s05_preview_display)
++{
++    MENU_SET_VALUE("PREVIEW ONLY");
++    MENU_SET_WARNING(
++        MENU_WARN_INFO,
++        "SHOOT05 R2: no HDR exposures are triggered."
++    );
++}
++#endif
++
+ static struct menu_entry shoot_menus[] = {
++
++    /* SHOOT05-R2: preview only, no shooting. */
++#ifdef CONFIG_5D4
++    {
++        .name = "Advanced Bracket [PREVIEW]",
++        .priv = &s05_preview_enabled,
++        .max = 1,
++        .update = s05_preview_display,
++        .help = "Menu preview only. Does not take HDR shots.",
++        .submenu_width = 700,
++        .children = (struct menu_entry[]) {
++            {
++                .name = "Frames (preview)",
++                .priv = &s05_preview_frames,
++                .min = 3,
++                .max = 12,
++                .help = "Preview setting only; no shooting.",
++            },
++            {
++                .name = "EV increment (preview)",
++                .priv = &s05_preview_ev8,
++                .min = 4,
++                .max = 16,
++                .unit = UNIT_1_8_EV,
++                .help = "Preview EV spacing; no exposure writes.",
++            },
++            {
++                .name = "Sequence (preview)",
++                .priv = &s05_preview_sequence,
++                .max = 2,
++                .choices = CHOICES(
++                    "0 - --", "0 - + -- ++", "0 + ++"
++                ),
++                .help = "Preview shot order only.",
++            },
++            MENU_EOL
++        },
++    },
++#endif
++
+     #ifdef FEATURE_HDR_BRACKETING
+     {
+         .name = "Advanced Bracket",
+diff --git a/src/zebra.c b/src/zebra.c
+index 1e2d109..7330834 100644
+--- a/src/zebra.c
++++ b/src/zebra.c
+@@ -685,10 +685,45 @@ hist_build()
+  * Double buffering prevents the fast renderer from reading the
+  * cache currently being refreshed by the low-priority task.
+  */
+-static uint8_t gd5d4_waveform_cache[2]
++/*
++ * SHOOT05-R21: deferred Waveform cache.
++ * Both tiles remain valid for the entire session.
++ * Only low-priority LiveView may allocate.
++ */
++static uint8_t (*gd5d4_waveform_cache)
+     [WAVEFORM_WIDTH * WAVEFORM_HEIGHT];
+ 
+ static volatile int gd5d4_waveform_cache_index = -1;
++static int gd5d4_waveform_alloc_failed = 0;
++
++static void
++gd5d4_waveform_cache_ensure_allocated(void)
++{
++    if (gd5d4_waveform_cache || gd5d4_waveform_alloc_failed)
++        return;
++
++    uint8_t (*cache)
++        [WAVEFORM_WIDTH * WAVEFORM_HEIGHT] =
++        ml_alloc_persistent_am(
++            2 * sizeof(*gd5d4_waveform_cache),
++            __FILE__,
++            __LINE__
++        );
++
++    if (!cache)
++    {
++        gd5d4_waveform_alloc_failed = 1;
++        return;
++    }
++
++    /*
++     * Index remains -1 until a producer writes
++     * and publishes a complete Waveform tile.
++     */
++    __sync_synchronize();
++    gd5d4_waveform_cache = cache;
++}
++
+ 
+ static const char gd5d4_focus01_marker[] __attribute__((used)) = "FOCUS01-STANDALONE-RGBA";
+ 
+@@ -726,6 +761,13 @@ gd5d4_waveform_cache_refresh(void)
+     if (!waveform_draw || waveform_size > 1)
+         return;
+ 
++    /*
++     * The renderer can call this function.
++     * It must never allocate from here.
++     */
++    if (!gd5d4_waveform_cache)
++        return;
++
+     hist_build();
+ 
+     if (!waveform)
+@@ -740,6 +782,7 @@ gd5d4_waveform_cache_refresh(void)
+         sizeof(gd5d4_waveform_cache[next])
+     );
+ 
++    __sync_synchronize();
+     gd5d4_waveform_cache_index = next;
+ }
+ 
+@@ -775,10 +818,17 @@ gd5d4_histogram_use_current_build = 0;
+ #define GD5D4_HIST_TILE_W (HIST_WIDTH + 2)
+ #define GD5D4_HIST_TILE_H (hist_height + 2)
+ 
++/*
++ * SHOOT05-R16B — experimental deferred allocation.
++ * Keep the original two-tile layout and sizes.
++ * Never free the allocation in this prototype.
++ */
+ static uint32_t
+-gd5d4_histogram_rgba_cache[2]
++    (*gd5d4_histogram_rgba_cache)
+     [GD5D4_HIST_TILE_W * GD5D4_HIST_TILE_H];
+ 
++static int gd5d4_histogram_rgba_alloc_failed = 0;
++
+ /* implemented below with the 5D4 RGBA helpers */
+ static int
+ gd5d4_hist_rgb_color(
+@@ -804,6 +854,35 @@ gd5d4_histogram_cache_refresh(void)
+     if (hist_type >= 2)
+         return;
+ 
++    /*
++     * R16B: only the Histogram producer allocates.
++     * Allocation is persistent and never performed
++     * by the READY compositor.
++     *
++     * Allocator backend is NOT YET HARDWARE-VALIDATED.
++     */
++    if (!gd5d4_histogram_rgba_cache)
++    {
++        if (gd5d4_histogram_rgba_alloc_failed)
++            return;
++
++        uint32_t (*new_cache)
++            [GD5D4_HIST_TILE_W * GD5D4_HIST_TILE_H] =
++            ml_alloc_persistent_am(
++                2 * sizeof(*gd5d4_histogram_rgba_cache),
++                __FILE__,
++                __LINE__
++            );
++
++        if (!new_cache)
++        {
++            gd5d4_histogram_rgba_alloc_failed = 1;
++            return;
++        }
++
++        gd5d4_histogram_rgba_cache = new_cache;
++    }
++
+     if (!gd5d4_histogram_use_current_build)
+         hist_build();
+ 
+@@ -966,6 +1045,7 @@ gd5d4_histogram_cache_refresh(void)
+      * The READY renderer therefore never sees a partially updated
+      * Histogram.
+      */
++    __sync_synchronize();
+     gd5d4_histogram_cache_index = next;
+ }
+ #endif
+@@ -4500,7 +4580,7 @@ gd5d4_combined_graph_cache_refresh(void)
+     /*
+      * Publish Waveform cache.
+      */
+-    if (waveform)
++    if (waveform && gd5d4_waveform_cache)
+     {
+         int wf_next =
+             (gd5d4_waveform_cache_index == 0) ? 1 : 0;
+@@ -4511,6 +4591,7 @@ gd5d4_combined_graph_cache_refresh(void)
+             sizeof(gd5d4_waveform_cache[wf_next])
+         );
+ 
++        __sync_synchronize();
+         gd5d4_waveform_cache_index =
+             wf_next;
+     }
+@@ -8279,7 +8360,7 @@ gd5d4_draw_small_waveform_rgba_cached(
+     int cache_index =
+         gd5d4_waveform_cache_index;
+ 
+-    if (cache_index < 0)
++    if (cache_index < 0 || !gd5d4_waveform_cache)
+         return;
+ 
+     const uint8_t *wf =
+@@ -8440,7 +8521,7 @@ gd5d4_draw_large_waveform_rgba_cached(
+     int cache_index =
+         gd5d4_waveform_cache_index;
+ 
+-    if (cache_index < 0)
++    if (cache_index < 0 || !gd5d4_waveform_cache)
+         return;
+ 
+     const uint8_t *wf =
+@@ -8842,7 +8923,7 @@ gd5d4_copy_histogram_rgba_cached(
+     int ci =
+         gd5d4_histogram_cache_index;
+ 
+-    if (ci < 0)
++    if (ci < 0 || !gd5d4_histogram_rgba_cache)
+         return;
+ 
+     const uint32_t *tile =
+@@ -13219,6 +13300,23 @@ livev_lopriority_task( void* unused )
+ 
+         loprio_sleep();
+ 
++/*
++ * SHOOT05-R21:
++ * Allocate Waveform only from the low-priority task.
++ * This executes before the existing graph refresh
++ * conditions and never inside the READY compositor.
++ */
++#if defined(CONFIG_5D4) && defined(FEATURE_HISTOGRAM) && defined(FEATURE_WAVEFORM) && defined(FEATURE_ZEBRA)
++        if (
++            lv_5d4 &&
++            (global_draw & 1) &&
++            waveform_draw &&
++            waveform_size <= 1 &&
++            !gui_menu_shown()
++        )
++            gd5d4_waveform_cache_ensure_allocated();
++#endif
++
+ #if defined(CONFIG_5D4) && defined(FEATURE_HISTOGRAM) && defined(FEATURE_WAVEFORM) && defined(FEATURE_ZEBRA)
+         /*
+          * GD-D6-ZEBRA27F-LOWPRIO-WAVEFORM-CACHE
