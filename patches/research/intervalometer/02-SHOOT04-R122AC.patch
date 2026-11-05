@@ -1,0 +1,13 @@
+diff --git a/platform/5D4.133/property_whitelist.h b/platform/5D4.133/property_whitelist.h
+index a648885..eb412e8 100644
+--- a/platform/5D4.133/property_whitelist.h
++++ b/platform/5D4.133/property_whitelist.h
+@@ -61,6 +61,8 @@ const uint32_t prop_write_allow [] =
+     PROP_PICSTYLE_SETTINGS_MONOCHROME, /* EXPO05H */
+     PROP_PICSTYLE_SETTINGS_USERDEF2, /* EXPO05H */
+     PROP_PICSTYLE_SETTINGS_USERDEF3, /* EXPO05H */
++    /* SHOOT04: native Canon Bulb Timer, FW 1.3.3 */
++    0x80040060,
+ };
+ 
+ // anything not listed above will allow reads but not writes
